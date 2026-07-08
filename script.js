@@ -133,5 +133,6 @@ button.addEventListener("click", () => {
       ${ladderRow(8)}
       ${ladderRow(7)}
     </div>
+    <p class="support-note">Saved you from a bad grade? <a href="https://buymeacoffee.com/shouldislab" target="_blank" rel="noopener">☕ Buy me a coffee</a></p>
 `;
 });
