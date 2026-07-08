@@ -568,48 +568,12 @@ body::after {
   text-transform: none;
 }
 
-/* Hand-drawn wavy underline under the headline word */
-.hero h1 span.scribble {
-  position: relative;
-  text-shadow: none;
-  white-space: nowrap;
-}
-.hero h1 span.scribble::after {
-  content: "";
-  position: absolute;
-  left: -2%;
-  right: -2%;
-  bottom: -0.14em;
-  height: 0.22em;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14' preserveAspectRatio='none'%3E%3Cpath d='M2 8 C 40 2, 70 12, 100 7 S 170 2, 198 7' stroke='%23cf4436' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat;
-  background-size: 100% 100%;
-}
-
 /* Panels tossed on a table — a static touch of tilt, no motion on hover */
 .panel--inputs { transform: rotate(-0.7deg); }
 .panel--results { transform: rotate(0.7deg); }
 
-/* Swap the sterile foil bar for a piece of washi tape on each panel */
+/* Drop the sterile foil accent bar on panels */
 .panel::before { display: none; }
-.tape {
-  position: absolute;
-  top: -12px;
-  width: 96px;
-  height: 26px;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(240, 182, 74, 0.55),
-    rgba(240, 182, 74, 0.55) 7px,
-    rgba(240, 182, 74, 0.34) 7px,
-    rgba(240, 182, 74, 0.34) 14px
-  );
-  border-left: 1px dashed rgba(0, 0, 0, 0.25);
-  border-right: 1px dashed rgba(0, 0, 0, 0.25);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-  opacity: 0.85;
-}
-.tape--left { left: 26px; transform: rotate(-5deg); }
-.tape--right { right: 26px; transform: rotate(4deg); }
 
 /* Give the support links personality too */
 .support-note a,
@@ -634,13 +598,13 @@ body::after {
   box-shadow: 0 10px 22px rgba(70, 50, 25, 0.16);
 }
 
-/* Logo + wordmark: solid tomato, printed (no gradient/glow) */
+/* Logo + wordmark: solid gold, printed (no gradient/glow) */
 .brand-mark {
-  background: var(--red);
-  color: #fdf6e6;
-  box-shadow: 0 3px 0 var(--red-deep);
+  background: var(--gold);
+  color: #2f2820;
+  box-shadow: 0 3px 0 var(--gold-deep);
 }
-.brand-accent { color: var(--red); }
+.brand-accent { color: var(--gold); }
 
 .btn-ghost:hover { border-color: var(--teal); background: var(--teal-soft); }
 
@@ -684,17 +648,6 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 .ladder-row { background: rgba(47, 40, 32, 0.05); }
 .ladder-grade { color: var(--teal-deep); }
 .stat--hero { border: 1px solid var(--line); }
-
-/* Washi tape → teal, so it pops on cream */
-.tape {
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(44, 131, 120, 0.5),
-    rgba(44, 131, 120, 0.5) 7px,
-    rgba(44, 131, 120, 0.32) 7px,
-    rgba(44, 131, 120, 0.32) 14px
-  );
-}
 
 /* Support links in teal */
 .support-note a,
