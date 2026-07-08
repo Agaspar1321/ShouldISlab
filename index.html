@@ -6,7 +6,7 @@
   <title>ShouldISlab — Should you grade that card?</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <script data-goatcounter="https://shouldislab.goatcounter.com/count"
@@ -26,8 +26,8 @@
   </header>
 
   <section class="hero">
-    <p class="eyebrow">Card grading calculator</p>
-    <h1>Know before you <span>slab&nbsp;it.</span></h1>
+    <p class="eyebrow">a card grading calculator</p>
+    <h1>Know before you <span class="scribble">slab&nbsp;it.</span></h1>
     <p class="lede">
       Drop in a card's raw price and its PSA comps — we'll tell you if it's worth grading. Most calculators show you the best case: what you'd make if it gems a 10. Ours weighs the real odds of every grade, factors in fees and grading cost, and gives you your true expected profit — the number that actually matters. It finds your break-even grade and tells you straight when the smart move is to not grade at all.
     </p>
@@ -36,10 +36,12 @@
       <div><strong>%</strong><span>gem-rate weighted</span></div>
       <div><strong>$</strong><span>save you money</span></div>
     </div>
+    <p class="hand-note">built this after eating a $40 loss on a PSA 8 &mdash; so you don't have to</p>
   </section>
 
   <main class="app" id="calc">
     <section class="panel panel--inputs">
+      <span class="tape tape--left" aria-hidden="true"></span>
       <div class="panel-head">
         <h2>Card details</h2>
         <span class="chip">Inputs</span>
@@ -73,6 +75,7 @@
     </section>
 
     <section class="panel panel--results">
+      <span class="tape tape--right" aria-hidden="true"></span>
       <div class="panel-head">
         <h2>Your verdict</h2>
         <span class="chip">Results</span>
@@ -81,7 +84,7 @@
       <div id="results">
         <div class="results-empty">
           <span class="results-empty-icon">◈</span>
-          <p>Fill in your card's numbers and hit <strong>Calculate ROI</strong> to see the verdict.</p>
+          <p class="hand-note">punch in a card and let's see if it's worth it&hellip;</p>
         </div>
       </div>
     </section>
