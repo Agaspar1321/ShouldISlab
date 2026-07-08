@@ -1,26 +1,32 @@
 :root {
-  --bg: #090d18;
-  --bg-glow-1: rgba(53, 230, 200, 0.10);
-  --bg-glow-2: rgba(255, 207, 63, 0.10);
-  --panel: #121a2e;
-  --panel-2: #0e1526;
-  --inset: #0b1120;
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
-  --gold: #f5c451;
-  --gold-deep: #c9962a;
-  --gold-soft: rgba(245, 196, 81, 0.14);
-  --text: #eef1fb;
-  --muted: #93a0c1;
-  --faint: #64708f;
-  --green: #38e5c4;
-  --green-deep: #12a487;
-  --red: #ff5d7d;
-  --red-deep: #d13456;
-  --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  /* Vintage Topps — aged cream paper, faded teal, tomato red */
+  --bg: #ece0c8;
+  --bg-glow-1: rgba(44, 131, 120, 0.08);
+  --bg-glow-2: rgba(201, 58, 46, 0.08);
+  --panel: #faf3e1;
+  --panel-2: #f3e8cf;
+  --inset: #fffbf0;
+  --line: rgba(52, 42, 30, 0.15);
+  --line-strong: rgba(52, 42, 30, 0.28);
+  --gold: #e0a637;
+  --gold-deep: #b9832a;
+  --gold-soft: rgba(224, 166, 55, 0.16);
+  --text: #2f2820;
+  --muted: #6a5c49;
+  --faint: #9b8a70;
+  --green: #3f9e63;
+  --green-deep: #2c7d4b;
+  --red: #cf4436;
+  --red-deep: #a8362b;
+  --teal: #2c8378;
+  --teal-deep: #1f6b61;
+  --teal-soft: rgba(44, 131, 120, 0.15);
+  --shadow: 0 14px 30px rgba(70, 50, 25, 0.18);
   --r-lg: 18px;
   --r-md: 12px;
   --r-sm: 9px;
+  /* handwriting-note accent */
+  --hand: "Caveat", "Segoe Print", cursive;
 }
 
 * {
@@ -523,4 +529,182 @@ input:focus {
 @media (max-width: 480px) {
   .hero-stats { gap: 1.4rem; }
   .field-row { grid-template-columns: 1fr; }
+}
+
+/* =========================================================
+   HUMAN TOUCH LAYER
+   Everything below is an additive "personality" pass — grain,
+   handwriting, slight tilt, washi tape, hand-drawn underline.
+   Delete this whole block to return to the clean look.
+   ========================================================= */
+
+/* Subtle paper grain over the whole page — kills the flat "digital" feel */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Handwriting accents — instantly reads "a person made this" */
+.hand-note {
+  font-family: var(--hand);
+  font-size: 1.35rem;
+  line-height: 1.2;
+  color: var(--red);
+  transform: rotate(-1.5deg);
+}
+.hero .hand-note { margin-top: 1.6rem; opacity: 0.92; }
+
+.eyebrow {
+  font-family: var(--hand);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: none;
+}
+
+/* Hand-drawn wavy underline under the headline word */
+.hero h1 span.scribble {
+  position: relative;
+  text-shadow: none;
+  white-space: nowrap;
+}
+.hero h1 span.scribble::after {
+  content: "";
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  bottom: -0.14em;
+  height: 0.22em;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14' preserveAspectRatio='none'%3E%3Cpath d='M2 8 C 40 2, 70 12, 100 7 S 170 2, 198 7' stroke='%23cf4436' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat;
+  background-size: 100% 100%;
+}
+
+/* Panels tossed on a table — a static touch of tilt, no motion on hover */
+.panel--inputs { transform: rotate(-0.7deg); }
+.panel--results { transform: rotate(0.7deg); }
+
+/* Swap the sterile foil bar for a piece of washi tape on each panel */
+.panel::before { display: none; }
+.tape {
+  position: absolute;
+  top: -12px;
+  width: 96px;
+  height: 26px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(240, 182, 74, 0.55),
+    rgba(240, 182, 74, 0.55) 7px,
+    rgba(240, 182, 74, 0.34) 7px,
+    rgba(240, 182, 74, 0.34) 14px
+  );
+  border-left: 1px dashed rgba(0, 0, 0, 0.25);
+  border-right: 1px dashed rgba(0, 0, 0, 0.25);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0.85;
+}
+.tape--left { left: 26px; transform: rotate(-5deg); }
+.tape--right { right: 26px; transform: rotate(4deg); }
+
+/* Give the support links personality too */
+.support-note a,
+.footer-support { font-family: var(--hand); font-size: 1.1rem; font-weight: 700; }
+
+@media (max-width: 480px) {
+  .panel--inputs,
+  .panel--results { transform: none; }
+}
+
+/* =========================================================
+   VINTAGE TOPPS THEME
+   Light "wax-pack" pass: flattens the glossy gradients and
+   maps accents to faded teal + tomato red on aged cream.
+   Delete this block to drop the vintage recolor.
+   ========================================================= */
+
+/* Flat printed panels with a card-stock border instead of gloss */
+.panel {
+  background: var(--panel);
+  border: 2px solid var(--line-strong);
+  box-shadow: 0 10px 22px rgba(70, 50, 25, 0.16);
+}
+
+/* Logo + wordmark: solid tomato, printed (no gradient/glow) */
+.brand-mark {
+  background: var(--red);
+  color: #fdf6e6;
+  box-shadow: 0 3px 0 var(--red-deep);
+}
+.brand-accent { color: var(--red); }
+
+.btn-ghost:hover { border-color: var(--teal); background: var(--teal-soft); }
+
+/* Eyebrow: plain red-pen scrawl, no pill */
+.eyebrow {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--teal-deep);
+}
+
+/* Chips + small accents go teal */
+.chip { color: var(--teal-deep); background: var(--teal-soft); }
+.results-empty-icon { color: var(--teal-deep); background: var(--teal-soft); }
+
+/* Inputs: warm focus ring */
+input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
+
+/* Primary action: flat tomato "stamp" button */
+#btn-Submit {
+  background: var(--red);
+  color: #fdf6e6;
+  box-shadow: 0 4px 0 var(--red-deep);
+}
+#btn-Submit:hover { filter: brightness(1.04); box-shadow: 0 4px 0 var(--red-deep); }
+#btn-Submit:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--red-deep); }
+#btn-Submit:focus-visible { box-shadow: 0 4px 0 var(--red-deep), 0 0 0 3px var(--teal-soft); }
+
+/* Verdict banners recolored to the vintage green / red */
+#results.is-good .verdict {
+  background: rgba(63, 158, 99, 0.13);
+  border: 1px solid rgba(63, 158, 99, 0.42);
+}
+#results.is-bad .verdict {
+  background: rgba(207, 68, 54, 0.13);
+  border: 1px solid rgba(207, 68, 54, 0.42);
+}
+#results.is-good .verdict-tag { color: #fdf6e6; }
+
+/* Net-by-grade rows: faint ink tint + teal grade labels */
+.ladder-row { background: rgba(47, 40, 32, 0.05); }
+.ladder-grade { color: var(--teal-deep); }
+.stat--hero { border: 1px solid var(--line); }
+
+/* Washi tape → teal, so it pops on cream */
+.tape {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(44, 131, 120, 0.5),
+    rgba(44, 131, 120, 0.5) 7px,
+    rgba(44, 131, 120, 0.32) 7px,
+    rgba(44, 131, 120, 0.32) 14px
+  );
+}
+
+/* Support links in teal */
+.support-note a,
+.footer-support {
+  color: var(--teal-deep);
+  background: var(--teal-soft);
+  border-color: var(--teal-soft);
+}
+.support-note a:hover,
+.footer-support:hover {
+  border-color: var(--teal);
+  background: rgba(44, 131, 120, 0.22);
 }
