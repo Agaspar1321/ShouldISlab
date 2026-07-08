@@ -144,8 +144,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 .hero h1 span {
-  color: var(--gold);
-  text-shadow: 0 2px 0 var(--gold-deep);
+  color: var(--teal);
+  text-shadow: 0 2px 0 var(--teal-deep);
 }
 
 .lede {
@@ -568,9 +568,6 @@ body::after {
   text-transform: none;
 }
 
-/* Panels tossed on a table — a static touch of tilt, no motion on hover */
-.panel--inputs { transform: rotate(-0.7deg); }
-.panel--results { transform: rotate(0.7deg); }
 
 /* Drop the sterile foil accent bar on panels */
 .panel::before { display: none; }
@@ -578,11 +575,6 @@ body::after {
 /* Give the support links personality too */
 .support-note a,
 .footer-support { font-family: var(--hand); font-size: 1.1rem; font-weight: 700; }
-
-@media (max-width: 480px) {
-  .panel--inputs,
-  .panel--results { transform: none; }
-}
 
 /* =========================================================
    VINTAGE TOPPS THEME
