@@ -589,7 +589,9 @@ body::after {
   box-shadow: 0 10px 22px rgba(70, 50, 25, 0.16);
 }
 
-/* Wordmark accent teal to match the slab mark */
+/* Tri-color wordmark: Should = red, I = gold, Slab = teal (matches the mark) */
+.brand-should { color: var(--red); }
+.brand-i { color: var(--gold); }
 .brand-accent { color: var(--teal); }
 
 .btn-ghost:hover { border-color: var(--teal); background: var(--teal-soft); }
