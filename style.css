@@ -590,13 +590,13 @@ body::after {
   box-shadow: 0 10px 22px rgba(70, 50, 25, 0.16);
 }
 
-/* Logo + wordmark: solid gold, printed (no gradient/glow) */
+/* Logo + wordmark: solid teal, printed (no gradient/glow) */
 .brand-mark {
-  background: var(--gold);
-  color: #2f2820;
-  box-shadow: 0 3px 0 var(--gold-deep);
+  background: var(--teal);
+  color: #fdf6e6;
+  box-shadow: 0 3px 0 var(--teal-deep);
 }
-.brand-accent { color: var(--gold); }
+.brand-accent { color: var(--teal); }
 
 .btn-ghost:hover { border-color: var(--teal); background: var(--teal-soft); }
 
