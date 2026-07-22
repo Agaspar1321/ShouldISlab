@@ -35,10 +35,16 @@ async function getAverage(paramsObj) {
 }
 
 function calculateROI ({ rawValue, gradeValues, probabilities, gradingCost, feePct}) {
+    // Only grades with a real comp price count. Renormalize their probabilities
+    // to sum to 1 so missing grades aren't averaged in as $0 outcomes.
+    const pricedGrades = Object.keys(gradeValues).filter(grade => gradeValues[grade] > 0);
+    const totalProb = pricedGrades.reduce((sum, grade) => sum + probabilities[grade], 0);
     let expectedGradedValue = 0;
-    Object.keys(gradeValues).forEach(grade => {
-        expectedGradedValue += probabilities[grade] * gradeValues[grade];
-    });
+    if (totalProb > 0) {
+        pricedGrades.forEach(grade => {
+            expectedGradedValue += (probabilities[grade] / totalProb) * gradeValues[grade];
+        });
+    }
 
     const netIfGrade = expectedGradedValue * (1 - feePct) - gradingCost;
     const netIfRaw = rawValue * (1 - feePct);
@@ -151,6 +157,30 @@ app.get('/api/comps', async (req, res) => {
     const probabilities = gemRateToProbabilities(gemRate);
     const result = calculateROI({ rawValue: raw.avg, gradeValues, probabilities, gradingCost, feePct })
     res.json({ result, comps: { raw, psa10, psa9, psa8, psa7 } });
+});
+
+// Manual fallback: caller supplies the prices, we just run the engine.
+app.get('/api/verdict', (req, res) => {
+    const rawValue = Number(req.query.rawValue);
+    const gradeValues = {
+        10: Number(req.query.psa10),
+        9:  Number(req.query.psa9),
+        8:  Number(req.query.psa8),
+        7:  Number(req.query.psa7),
+    };
+    const gradingCost = Number(req.query.gradingCost) || 80;
+    const feePct      = Number(req.query.feePct) / 100 || 0.13;
+    const gemRate     = Number(req.query.gemRate) / 100 || 0.30;
+    const probabilities = gemRateToProbabilities(gemRate);
+    const result = calculateROI({ rawValue, gradeValues, probabilities, gradingCost, feePct });
+    const comps = {
+        raw:   { avg: rawValue },
+        psa10: { avg: gradeValues[10] },
+        psa9:  { avg: gradeValues[9] },
+        psa8:  { avg: gradeValues[8] },
+        psa7:  { avg: gradeValues[7] },
+    };
+    res.json({ result, comps });
 });
 
 app.listen(5000, '127.0.0.1', () => {
