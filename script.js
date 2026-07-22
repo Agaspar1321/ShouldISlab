@@ -1,62 +1,54 @@
+function renderResult(result) {
+    const good = result.expectedProfit > 10;
+    const money = (n) => (n < 0 ? `-$${Math.abs(n).toFixed(2)}` : `$${n.toFixed(2)}`);
+    const ladderRow = (grade) => {
+        const net = result.netByGrade[grade];
+        return `
+        <div class="ladder-row">
+            <span class="ladder-grade">PSA ${grade}</span>
+            <span class="ladder-value ${net < 0 ? "neg" : ""}">${money(net)}</span>
+        </div>`;
+    };
 
-function calculateROI ({ rawValue, gradeValues, probabilities, gradingCost, feePct}) {
-    let expectedGradedValue = 0;
-    Object.keys(gradeValues).forEach(grade => {
-        expectedGradedValue += probabilities[grade] * gradeValues[grade];
-    });
+    results.className = good ? "is-good" : "is-bad";
+    results.innerHTML = `
+    <div class="verdict">
+      <span class="verdict-tag">${good ? "Grade it" : "Skip it"}</span>
+      <p class="verdict-msg">${result.verdict}</p>
+    </div>
 
-    const netIfGrade = expectedGradedValue * (1 - feePct) - gradingCost;
-    const netIfRaw = rawValue * (1 - feePct);
-    const expectedProfit = netIfGrade - netIfRaw;
-    const roi = expectedProfit / gradingCost;
-    let multiplier = gradeValues[10] / rawValue;
-    let recommendedMultiplier = rawValue < 100 ? 3 : 2.5;   // his rule: <$100 raw wants ~3x, >$100 wants ~2.5x
-    let meetsRuleOfThumb = multiplier >= recommendedMultiplier;
-    
-    let rawVsGradeOutcome = "No grade beats selling raw";
-    const gradesAscending = Object.keys(gradeValues).map(Number).sort((a, b) => a - b);  // [7,8,9,10]
-    for (const grade of gradesAscending) {
-        const netAtGrade = gradeValues[grade] * (1 - feePct) - gradingCost;
-        if (netAtGrade >= netIfRaw) {
-            rawVsGradeOutcome = grade;
-            break;   // first match in ascending order = the LOWEST break-even grade
-        }
-    }
+    <div class="stat-grid">
+      <div class="stat stat--hero ${good ? "pos" : "neg"}">
+        <span class="stat-label">Expected profit</span>
+        <span class="stat-value">${money(result.expectedProfit)}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Minimum Grade to cover grading & fees</span>
+        <span class="stat-value">${result.notLoseMoneyGrading === "No grade gets your money back" ? "No grade gets your money back" : "PSA " + result.notLoseMoneyGrading}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Minimum Grade more than Raw</span>
+        <span class="stat-value">${result.rawVsGradeOutcome === "No grade beats selling raw" ? "No grade beats selling raw" : "PSA " + result.rawVsGradeOutcome}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Net if sold raw</span>
+        <span class="stat-value">${money(result.netIfRaw)}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Best-case multiplier</span>
+        <span class="stat-value">${result.multiplier.toFixed(1)}x</span>
+      </div>
+    </div>
 
-
-    let notLoseMoneyGrading = "No grade gets your money back";
-    for (const grade of gradesAscending) {
-        const netAtGrade = gradeValues[grade] * (1 - feePct) - gradingCost;
-        if (netAtGrade >= 0) {
-            notLoseMoneyGrading = grade;
-            break;   // first match in ascending order = the LOWEST break-even grade
-        }
-    }
-    
-    let netByGrade = {};
-    for (const grade of gradesAscending) {
-    netByGrade[grade] = gradeValues[grade] * (1 - feePct) - gradingCost;
-    } 
-
-    let verdict = 'none'
-    if(expectedProfit <= 10){
-        verdict = "Don't Grade this card";
-    } else {
-        verdict = "Grade this card!";
-    }
-    return { expectedGradedValue, netIfGrade, netIfRaw, expectedProfit, verdict, rawVsGradeOutcome, multiplier, meetsRuleOfThumb, netByGrade, notLoseMoneyGrading };
-}
-
-// A small helper: gem rate → full probability distribution
-function gemRateToProbabilities(gemRate) {
-  const remaining = 1 - gemRate;      // everything that's NOT a 10
-  return {
-    10: gemRate,
-    9: remaining * 0.7,               // most non-10s land as 9s
-    8: remaining * 0.2,
-    7: remaining * 0.1,
-  };
-  
+    <div class="ladder">
+      <h3>Net by grade</h3>
+      ${ladderRow(10)}
+      ${ladderRow(9)}
+      ${ladderRow(8)}
+      ${ladderRow(7)}
+    </div>
+    <p class="support-note">Saved you from a bad grade? <a href="https://buymeacoffee.com/shouldislab" target="_blank" rel="noopener">☕ Buy me a coffee</a></p>
+`;
 }
 
 const button = document.getElementById("btn-Submit");
@@ -95,44 +87,31 @@ button.addEventListener("click", () => {
             <span class="ladder-value ${net < 0 ? "neg" : ""}">${money(net)}</span>
         </div>`;
   };
+});
 
-  results.className = good ? "is-good" : "is-bad";
-  results.innerHTML = `
-    <div class="verdict">
-      <span class="verdict-tag">${good ? "Grade it" : "Skip it"}</span>
-      <p class="verdict-msg">${result.verdict}</p>
-    </div>
+const searchBtn = document.getElementById('searchBtn');
+const pickList  = document.getElementById('pickList');
 
-    <div class="stat-grid">
-      <div class="stat stat--hero ${good ? "pos" : "neg"}">
-        <span class="stat-label">Expected profit</span>
-        <span class="stat-value">${money(result.expectedProfit)}</span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">Minimum Grade to cover grading & fees</span>
-        <span class="stat-value">${result.notLoseMoneyGrading === "No grade gets your money back" ? "No grade gets your money back" : "PSA " + result.notLoseMoneyGrading}</span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">Minimum Grade more than Raw</span>
-        <span class="stat-value">${result.rawVsGradeOutcome === "No grade beats selling raw" ? "No grade beats selling raw" : "PSA " + result.rawVsGradeOutcome}</span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">Net if sold raw</span>
-        <span class="stat-value">${money(result.netIfRaw)}</span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">Best-case multiplier</span>
-        <span class="stat-value">${result.multiplier.toFixed(1)}x</span>
-       </div>  
-    </div>
+searchBtn.addEventListener('click', async () => {
+    const query = document.getElementById('cardSearch').value;
 
-    <div class="ladder">
-      <h3>Net by grade</h3>
-      ${ladderRow(10)}
-      ${ladderRow(9)}
-      ${ladderRow(8)}
-      ${ladderRow(7)}
-    </div>
-    <p class="support-note">Saved you from a bad grade? <a href="https://buymeacoffee.com/shouldislab" target="_blank" rel="noopener">☕ Buy me a coffee</a></p>
-`;
+    // 1. call YOUR api from the browser
+    const response = await fetch('/api/search?q=' + encodeURIComponent(query));
+    const cards = await response.json();
+
+    // 2. render the list  ← you build this part
+    pickList.innerHTML = cards.map(card => `
+        <div class="pick-card" data-query="${query} ${card.card_number}">
+            <img src="${card.image_url}" width="60">
+            <span>${card.title}</span>
+        </div>
+    `).join('');
+    document.querySelectorAll('.pick-card').forEach(el => {
+      el.addEventListener('click', async () => {
+          const q = el.dataset.query;          // read the stashed query
+          const res = await fetch('/api/comps?q=' + encodeURIComponent(q));
+          const data = await res.json();
+          renderResult(data.result);      // ← was console.log('VERDICT:', data.result)
+      });
+    });
 });
