@@ -714,3 +714,160 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 @media (max-width: 480px) {
   .waitlist-form { flex-direction: column; }
 }
+
+/* =========================================================
+   V2 REDESIGN — search grid, card verdict, grade rows
+   ========================================================= */
+
+/* --- search bar --- */
+.search-bar { display: flex; gap: 0.6rem; }
+.search-bar input { flex: 1; }
+.search-bar button {
+  flex: none;
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  color: #fdf6e6;
+  cursor: pointer;
+  padding: 0.72rem 1.3rem;
+  border: none;
+  border-radius: var(--r-sm);
+  background: var(--teal);
+  box-shadow: 0 4px 0 var(--teal-deep);
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+.search-bar button:hover { filter: brightness(1.05); }
+.search-bar button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--teal-deep); }
+
+/* --- pick grid --- */
+.pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.1rem;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 0.15rem;
+}
+.pick-status {
+  grid-column: 1 / -1;
+  color: var(--faint);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1.4rem 0.5rem;
+}
+.pick-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.55rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--inset);
+  transition: transform 0.1s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pick-card:hover { transform: translateY(-2px); border-color: var(--teal); box-shadow: 0 8px 16px rgba(70, 50, 25, 0.16); }
+.pick-card.is-selected { border-color: var(--teal); box-shadow: 0 0 0 2px var(--teal-soft); }
+.pick-card img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(47, 40, 32, 0.05);
+}
+.pick-name { font-size: 0.75rem; font-weight: 600; color: var(--text); line-height: 1.25; }
+.pick-set { font-size: 0.67rem; color: var(--faint); }
+
+/* --- assumptions --- */
+.assumptions { margin-top: 1.3rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+.assumptions-label {
+  display: block;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 0.7rem;
+}
+.assumptions-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+
+/* --- manual fallback --- */
+.manual-fallback { margin-top: 1.1rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.manual-fallback summary {
+  cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--teal-deep);
+  list-style: none;
+}
+.manual-fallback summary::-webkit-details-marker { display: none; }
+.manual-fallback summary::before { content: "＋ "; font-weight: 700; }
+.manual-fallback[open] summary::before { content: "－ "; }
+.manual-fallback #cardInput { margin-top: 1rem; }
+
+/* --- verdict head (card image + verdict banner) --- */
+.verdict-head {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  border-radius: var(--r-md);
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 1.3rem;
+  animation: dealIn 0.35s ease-out;
+}
+#results.is-good .verdict-head { background: rgba(63, 158, 99, 0.13); border: 1px solid rgba(63, 158, 99, 0.42); }
+#results.is-bad .verdict-head  { background: rgba(207, 68, 54, 0.13); border: 1px solid rgba(207, 68, 54, 0.42); }
+.verdict-card-img {
+  width: 82px; flex: none; border-radius: var(--r-sm);
+  box-shadow: 0 6px 14px rgba(70, 50, 25, 0.22); background: var(--inset);
+}
+.verdict-head-text { flex: 1; }
+.verdict-card-name { font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-bottom: 0.5rem; line-height: 1.3; }
+.verdict-head .verdict-tag {
+  display: inline-block; font-size: 0.7rem; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; padding: 0.28rem 0.7rem; border-radius: 999px; margin-bottom: 0.5rem;
+}
+#results.is-good .verdict-head .verdict-tag { color: #fdf6e6; background: var(--green); }
+#results.is-bad .verdict-head .verdict-tag  { color: #fff; background: var(--red); }
+#results.is-good .verdict-msg { color: var(--green-deep); }
+#results.is-bad .verdict-msg  { color: var(--red-deep); }
+.verdict-raw { display: block; margin-top: 0.6rem; font-size: 0.8rem; color: var(--faint); }
+
+/* --- grade rows (price + count + net) --- */
+.grade-row {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.75rem;
+  padding: 0.55rem 0.75rem; border-radius: var(--r-sm);
+  background: rgba(47, 40, 32, 0.05); margin-bottom: 0.4rem;
+}
+.grade-row--empty { opacity: 0.6; }
+.grade-tag { font-weight: 700; font-size: 0.85rem; color: var(--teal-deep); letter-spacing: 0.5px; }
+.grade-comp { font-size: 0.8rem; color: var(--muted); }
+.grade-net { font-weight: 700; font-size: 0.9rem; text-align: right; white-space: nowrap; }
+.grade-net.pos { color: var(--green-deep); }
+.grade-net.neg { color: var(--red); }
+
+@media (max-width: 480px) {
+  .assumptions-row { grid-template-columns: 1fr; }
+}
+
+/* --- single-view flow: search OR verdict, never both --- */
+.app { grid-template-columns: 1fr; max-width: 680px; }
+.panel--results { display: none; }
+.app.viewing-verdict .panel--find { display: none; }
+.app.viewing-verdict .panel--results { display: block; position: static; }
+
+.search-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1.4rem;
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--teal-deep);
+  cursor: pointer;
+  padding: 0.62rem 1.15rem;
+  border: 1px solid var(--teal-soft);
+  border-radius: 999px;
+  background: var(--teal-soft);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.search-again:hover {
+  border-color: var(--teal);
+  background: rgba(44, 131, 120, 0.2);
+  transform: translateY(-1px);
+}

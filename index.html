@@ -38,7 +38,7 @@
     <p class="eyebrow">a card grading calculator</p>
     <h1>Know before you <span>slab&nbsp;it.</span></h1>
     <p class="lede">
-      Drop in a card's raw price and its PSA comps — we'll tell you if it's worth grading. Most calculators show you the best case: what you'd make if it gems a 10. Ours weighs the real odds of every grade, factors in fees and grading cost, and gives you your true expected profit — the number that actually matters. It finds your break-even grade and tells you straight when the smart move is to not grade at all.
+      Search any card and we'll pull its raw price and PSA comps for you — then tell you if it's worth grading. Most calculators show you the best case: what you'd make if it gems a 10. Ours weighs the real odds of every grade, factors in fees and grading cost, and gives you your true expected profit — the number that actually matters. It finds your break-even grade and tells you straight when the smart move is to not grade at all.
     </p>
     <div class="hero-stats">
       <div><strong>4</strong><span>grades modeled</span></div>
@@ -48,39 +48,52 @@
   </section>
 
   <main class="app" id="calc">
-    <section class="panel panel--inputs">
+    <section class="panel panel--find">
       <div class="panel-head">
-        <h2>Card details</h2>
-        <span class="chip">Inputs</span>
+        <h2>Find your card</h2>
+        <span class="chip">Search</span>
       </div>
+
+      <div class="search-bar">
         <input id="cardSearch" placeholder="Search a card… e.g. charizard 223/197">
-        <button id="searchBtn">Search</button>
-      <div id="pickList"></div>
-      <form id="cardInput" onsubmit="return false">
-        <div class="field field--wide">
-          <label for="rawValue">Raw value</label>
-          <input id="rawValue" inputmode="decimal" placeholder="$24.99">
+        <button id="searchBtn" type="button">Search</button>
+      </div>
+
+      <div id="pickList" class="pick-grid">
+        <p class="pick-status">Search a card to pull recent sales and a grade-or-skip verdict.</p>
+      </div>
+
+      <div class="assumptions">
+        <span class="assumptions-label">Your assumptions</span>
+        <div class="assumptions-row">
+          <div class="field"><label for="gradingCost">Grading cost</label><input id="gradingCost" inputmode="decimal" value="80"></div>
+          <div class="field"><label for="feePct">Selling fee</label><input id="feePct" inputmode="decimal" value="13"></div>
+          <div class="field"><label for="gemRate">Gem rate</label><input id="gemRate" inputmode="decimal" value="50"></div>
         </div>
-
-        <fieldset class="grades">
-          <legend>Graded comps <span>(PSA)</span></legend>
-          <div class="grade-grid">
-            <div class="field"><label for="psa10">PSA 10</label><input id="psa10" inputmode="decimal" placeholder="$199.99"></div>
-            <div class="field"><label for="psa9">PSA 9</label><input id="psa9" inputmode="decimal" placeholder="$124.99"></div>
-            <div class="field"><label for="psa8">PSA 8</label><input id="psa8" inputmode="decimal" placeholder="$99.99"></div>
-            <div class="field"><label for="psa7">PSA 7</label><input id="psa7" inputmode="decimal" placeholder="$49.99"></div>
-          </div>
-        </fieldset>
-
-        <div class="field-row">
-          <div class="field"><label for="gradingCost">Grading cost</label><input id="gradingCost" inputmode="decimal" placeholder="$79.99"></div>
-          <div class="field"><label for="feePct">Selling fee</label><input id="feePct" inputmode="decimal" placeholder="13%"></div>
-          <div class="field"><label for="gemRate">Gem rate</label><input id="gemRate" inputmode="decimal" placeholder="50%"></div>
-        </div>
-
-        <button id="btn-Submit" type="submit">Calculate ROI</button>
         <p class="field-hint">Not sure on gem rate? Look up the card on <span>gemrate.com</span>.</p>
-      </form>
+      </div>
+
+      <details class="manual-fallback">
+        <summary>Prices not showing? Enter them manually</summary>
+        <form id="cardInput" onsubmit="return false">
+          <div class="field field--wide">
+            <label for="rawValue">Raw value</label>
+            <input id="rawValue" inputmode="decimal" placeholder="$24.99">
+          </div>
+
+          <fieldset class="grades">
+            <legend>Graded comps <span>(PSA)</span></legend>
+            <div class="grade-grid">
+              <div class="field"><label for="psa10">PSA 10</label><input id="psa10" inputmode="decimal" placeholder="$199.99"></div>
+              <div class="field"><label for="psa9">PSA 9</label><input id="psa9" inputmode="decimal" placeholder="$124.99"></div>
+              <div class="field"><label for="psa8">PSA 8</label><input id="psa8" inputmode="decimal" placeholder="$99.99"></div>
+              <div class="field"><label for="psa7">PSA 7</label><input id="psa7" inputmode="decimal" placeholder="$49.99"></div>
+            </div>
+          </fieldset>
+
+          <button id="btn-Submit" type="submit">Calculate ROI</button>
+        </form>
+      </details>
     </section>
 
     <section class="panel panel--results">
@@ -92,7 +105,7 @@
       <div id="results">
         <div class="results-empty">
           <span class="results-empty-icon">◈</span>
-          <p>punch in a card and let's see if it's worth it&hellip;</p>
+          <p>search a card and let's see if it's worth it&hellip;</p>
         </div>
       </div>
     </section>
