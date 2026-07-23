@@ -38,7 +38,7 @@
     <p class="eyebrow">a card grading calculator</p>
     <h1>Know before you <span>slab&nbsp;it.</span></h1>
     <p class="lede">
-      Search any card and we'll pull its raw price and PSA comps for you — then tell you if it's worth grading. Most calculators show you the best case: what you'd make if it gems a 10. Ours weighs the real odds of every grade, factors in fees and grading cost, and gives you your true expected profit — the number that actually matters. It finds your break-even grade and tells you straight when the smart move is to not grade at all.
+      Search a card and ShouldISlab pulls its raw and graded comps, then runs the math most calculators dodge. Everyone shows you the dream — what you'd make if it gems a 10. This one weighs the <strong>real</strong> odds of every grade, takes out grading and selling fees, and hands you your true expected profit, your break-even grade, and a straight answer when the smart move is to just not grade it.
     </p>
     <div class="hero-stats">
       <div><strong>4</strong><span>grades modeled</span></div>
@@ -58,6 +58,8 @@
         <input id="cardSearch" placeholder="Search a card… e.g. charizard 223/197">
         <button id="searchBtn" type="button">Search</button>
       </div>
+
+      <p class="search-note">⚠ <strong>Demo — treat these as ballpark.</strong> Prices are averaged across <em>all</em> matching listings, which can mix different parallels of the same card, and this free tier only sees the last <strong>3 days</strong> of sales. For a specific card, use <strong>manual entry</strong> below. Popular base cards work best.</p>
 
       <div id="pickList" class="pick-grid">
         <p class="pick-status">Search a card to pull recent sales and a grade-or-skip verdict.</p>
@@ -102,6 +104,8 @@
         <span class="chip">Results</span>
       </div>
 
+      <button id="searchAgain" class="search-again" type="button">← Search another card</button>
+
       <div id="results">
         <div class="results-empty">
           <span class="results-empty-icon">◈</span>
@@ -114,10 +118,7 @@
   <section class="waitlist" id="waitlist">
     <h2>Want the Pro version?</h2>
     <p class="waitlist-pitch">
-      Right now you look up the prices yourself. Pro does it for you — search any card and it
-      auto-fills the PSA 10/9/8/7 comps <em>and</em> the gem rate, then runs the math on your whole
-      collection at once. No more tab-hopping to eBay and gemrate.com. Drop your email and I'll ping
-      you the day it's live.
+      You're on the free demo: ballpark prices from the last few days, and you enter the gem rate yourself. Pro upgrades both — <em>exact per-card comps</em> (no more blended parallels), deeper price history you can actually trust, and an <em>auto-filled gem rate</em> so you skip the lookup entirely. Point it at your whole collection and it runs the numbers in one shot. Drop your email and I'll ping you the day it's live.
     </p>
     <form action="https://formspree.io/f/mzdllbbj" method="POST" class="waitlist-form">
       <input type="email" name="email" placeholder="you@email.com" required>

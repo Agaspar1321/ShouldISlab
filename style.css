@@ -652,7 +652,7 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 
 /* ---------- Waitlist (Pro) ---------- */
 .waitlist {
-  max-width: min(952px, calc(100% - 3rem));
+  max-width: min(900px, calc(100% - 3rem));
   margin: 0 auto 1rem;
   background: var(--panel);
   border: 2px solid var(--line-strong);
@@ -741,11 +741,9 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 /* --- pick grid --- */
 .pick-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
   margin-top: 1.1rem;
-  max-height: 360px;
-  overflow-y: auto;
   padding: 0.15rem;
 }
 .pick-status {
@@ -776,8 +774,8 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
   border-radius: 6px;
   background: rgba(47, 40, 32, 0.05);
 }
-.pick-name { font-size: 0.75rem; font-weight: 600; color: var(--text); line-height: 1.25; }
-.pick-set { font-size: 0.67rem; color: var(--faint); }
+.pick-name { font-size: 0.92rem; font-weight: 600; color: var(--text); line-height: 1.3; }
+.pick-set { font-size: 0.8rem; color: var(--faint); }
 
 /* --- assumptions --- */
 .assumptions { margin-top: 1.3rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
@@ -812,7 +810,7 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 #results.is-good .verdict-head { background: rgba(63, 158, 99, 0.13); border: 1px solid rgba(63, 158, 99, 0.42); }
 #results.is-bad .verdict-head  { background: rgba(207, 68, 54, 0.13); border: 1px solid rgba(207, 68, 54, 0.42); }
 .verdict-card-img {
-  width: 82px; flex: none; border-radius: var(--r-sm);
+  width: 150px; flex: none; border-radius: var(--r-sm);
   box-shadow: 0 6px 14px rgba(70, 50, 25, 0.22); background: var(--inset);
 }
 .verdict-head-text { flex: 1; }
@@ -842,10 +840,11 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 
 @media (max-width: 480px) {
   .assumptions-row { grid-template-columns: 1fr; }
+  .verdict-card-img { width: 108px; }
 }
 
 /* --- single-view flow: search OR verdict, never both --- */
-.app { grid-template-columns: 1fr; max-width: 680px; }
+.app { grid-template-columns: 1fr; max-width: min(900px, calc(100% - 3rem)); padding: 0; }
 .panel--results { display: none; }
 .app.viewing-verdict .panel--find { display: none; }
 .app.viewing-verdict .panel--results { display: block; position: static; }
@@ -854,7 +853,7 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 1.4rem;
+  margin-bottom: 1.2rem;
   font-family: "Inter", sans-serif;
   font-weight: 700;
   font-size: 0.9rem;
@@ -871,3 +870,16 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
   background: rgba(44, 131, 120, 0.2);
   transform: translateY(-1px);
 }
+
+/* --- free-tier demo disclosure --- */
+.search-note {
+  margin-top: 0.8rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-soft);
+  border-radius: var(--r-sm);
+  padding: 0.6rem 0.8rem;
+}
+.search-note strong { color: var(--gold-deep); }
