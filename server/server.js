@@ -183,7 +183,7 @@ app.get('/api/verdict', (req, res) => {
     res.json({ result, comps });
 });
 
-const PORT = proccess.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server is running on ${PORT}`)
 });
