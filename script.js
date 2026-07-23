@@ -66,6 +66,7 @@ async function runSearch() {
 
 searchBtn.addEventListener('click', runSearch);
 cardSearch.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+document.getElementById('searchAgain').addEventListener('click', backToSearch);
 
 // ---------- select a card → pull comps → render ----------
 async function selectCard(el) {
@@ -78,6 +79,7 @@ async function selectCard(el) {
   showVerdict();
   try {
     const res  = await fetch('/api/comps?q=' + encodeURIComponent(el.dataset.query) + '&' + assumptionsQS());
+    if (!res.ok) throw new Error('server ' + res.status);
     const data = await res.json();
     renderResult(data.result, data.comps, cardMeta);
   } catch (e) {
@@ -89,25 +91,31 @@ async function selectCard(el) {
 // ---------- manual fallback ----------
 const manualBtn = document.getElementById('btn-Submit');
 manualBtn.addEventListener('click', async () => {
-  const num = (id) => parseFloat((document.getElementById(id).value || '').replace(/[^0-9.]/g, ''));
+  // blank grades are allowed — treated as 0 and ignored, same as a null lookup grade
+  const num = (id) => {
+    const v = parseFloat((document.getElementById(id).value || '').replace(/[^0-9.]/g, ''));
+    return Number.isNaN(v) ? 0 : v;
+  };
   const rawValue = num('rawValue');
   const vals = { 10: num('psa10'), 9: num('psa9'), 8: num('psa8'), 7: num('psa7') };
-  if ([rawValue, vals[10], vals[9], vals[8], vals[7]].some(Number.isNaN)) {
-    results.className = '';
-    results.innerHTML = '<div class="results-empty"><p>Fill in the raw value and all four PSA prices.</p></div>';
+
+  results.className = '';
+  showVerdict();
+
+  if (!rawValue || (!vals[10] && !vals[9] && !vals[8] && !vals[7])) {
+    results.innerHTML = '<div class="results-empty"><p>Enter a raw value and at least one PSA price.</p></div>';
     return;
   }
-  results.className = '';
+
   results.innerHTML = '<div class="results-empty"><p>Crunching the numbers…</p></div>';
-  showVerdict();
   const qs = `rawValue=${rawValue}&psa10=${vals[10]}&psa9=${vals[9]}&psa8=${vals[8]}&psa7=${vals[7]}&` + assumptionsQS();
   try {
-    const res  = await fetch('/api/verdict?' + qs);
+    const res = await fetch('/api/verdict?' + qs);
+    if (!res.ok) throw new Error('server ' + res.status);
     const data = await res.json();
     renderResult(data.result, data.comps, null);
   } catch (e) {
-    results.className = '';
-    results.innerHTML = '<div class="results-empty"><p>Something went wrong computing that. Check your numbers.</p></div>';
+    results.innerHTML = '<div class="results-empty"><p>Couldn\'t compute that. If you just added the endpoint, <strong>restart the server</strong> (it needs <code>/api/verdict</code>), then try again.</p></div>';
   }
 });
 
@@ -181,8 +189,6 @@ function renderResult(result, comps, cardMeta) {
       ${gradeRow(8)}
       ${gradeRow(7)}
     </div>
-    <button type="button" id="searchAgain" class="search-again">← Search another card</button>
     <p class="support-note">Saved you from a bad grade? <a href="https://buymeacoffee.com/shouldislab" target="_blank" rel="noopener">☕ Buy me a coffee</a></p>
   `;
-  document.getElementById('searchAgain').addEventListener('click', backToSearch);
 }
