@@ -130,7 +130,7 @@ function renderResult(result, comps, cardMeta) {
     const hasPrice = c && c.avg > 0;
     let priceLine;
     if (!hasPrice)             priceLine = 'no recent sales';
-    else if (c.count != null)  priceLine = `$${c.avg} · ${c.count} sale${c.count === 1 ? '' : 's'}`;
+    else if (c.count != null)  priceLine = `$${c.avg} · ${c.count} sale${c.count === 1 ? '' : 's'}`;    
     else                       priceLine = `$${c.avg}`;
     return `
       <div class="grade-row ${hasPrice ? '' : 'grade-row--empty'}">
@@ -178,7 +178,7 @@ function renderResult(result, comps, cardMeta) {
       </div>
       <div class="stat">
         <span class="stat-label">Best-case multiplier</span>
-        <span class="stat-value">${result.multiplier.toFixed(1)}x</span>
+        <span class="stat-value">${result.multiplier == null ? '—' : result.multiplier.toFixed(1) + 'x'}</span>
       </div>
     </div>
 
