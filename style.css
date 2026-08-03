@@ -838,6 +838,22 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 .grade-net.pos { color: var(--green-deep); }
 .grade-net.neg { color: var(--red); }
 
+/* --- thin data: too few sales to call it a market price --- */
+.grade-row--thin { background: var(--gold-soft); }
+.thin-flag {
+  display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.4rem;
+  border: 1px solid var(--gold-deep); border-radius: var(--r-sm);
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.6px; color: var(--gold-deep); vertical-align: middle;
+}
+.thin-note {
+  margin-top: 0.7rem; padding: 0.55rem 0.7rem;
+  background: var(--gold-soft); border-left: 3px solid var(--gold-deep);
+  border-radius: var(--r-sm);
+  font-size: 0.78rem; line-height: 1.45; color: var(--muted);
+}
+.thin-note strong { color: var(--gold-deep); }
+
 @media (max-width: 480px) {
   .assumptions-row { grid-template-columns: 1fr; }
   .verdict-card-img { width: 108px; }

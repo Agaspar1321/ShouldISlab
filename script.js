@@ -124,21 +124,44 @@ function renderResult(result, comps, cardMeta) {
   const good  = result.expectedProfit > 10;
   const money = (n) => (n < 0 ? `-$${Math.abs(n).toFixed(2)}` : `$${n.toFixed(2)}`);
 
+  // How many sales a price needs before we treat it as a market price rather than
+  // an anecdote. Below this we still SHOW the number — hiding data the user could
+  // interpret is worse — but we say plainly that it's thin.
+  const LOW_SAMPLE = 5;
+  const salesCount = (c) => (c ? (c.sampleSize != null ? c.sampleSize : c.count) : null);
+  const isThin = (c) => {
+    const n = salesCount(c);
+    return !!(c && c.avg > 0 && n != null && n < LOW_SAMPLE);
+  };
+
   const gradeRow = (grade) => {
     const c   = comps ? comps['psa' + grade] : null;
     const net = result.netByGrade[grade];
     const hasPrice = c && c.avg > 0;
+    const n = salesCount(c);
+    const thin = isThin(c);
     let priceLine;
-    if (!hasPrice)             priceLine = 'no recent sales';
-    else if (c.count != null)  priceLine = `$${c.avg} · ${c.count} sale${c.count === 1 ? '' : 's'}`;    
-    else                       priceLine = `$${c.avg}`;
+    if (!hasPrice)   priceLine = 'no recent sales';
+    else if (n != null) priceLine = `$${c.avg} · ${n} sale${n === 1 ? '' : 's'}`;
+    else             priceLine = `$${c.avg}`;
+    const thinFlag = thin ? ' <span class="thin-flag">thin</span>' : '';
     return `
-      <div class="grade-row ${hasPrice ? '' : 'grade-row--empty'}">
+      <div class="grade-row ${hasPrice ? '' : 'grade-row--empty'} ${thin ? 'grade-row--thin' : ''}">
         <span class="grade-tag">PSA ${grade}</span>
-        <span class="grade-comp">${priceLine}</span>
+        <span class="grade-comp">${priceLine}${thinFlag}</span>
         <span class="grade-net ${net < 0 ? 'neg' : 'pos'}">${hasPrice ? money(net) : '—'}</span>
       </div>`;
   };
+
+  // One plain-English caveat covering everything the verdict leaned on.
+  const thinSources = [];
+  if (comps && isThin(comps.raw)) thinSources.push('raw');
+  [10, 9, 8, 7].forEach(g => {
+    if (comps && isThin(comps['psa' + g])) thinSources.push('PSA ' + g);
+  });
+  const thinNote = thinSources.length
+    ? `<p class="thin-note"><strong>Thin data.</strong> ${thinSources.join(', ')} priced on fewer than ${LOW_SAMPLE} recent sales. Treat this verdict as a rough indication, not a market price.</p>`
+    : '';
 
   const cardImg = cardMeta && cardMeta.image
     ? `<img class="verdict-card-img" src="${escapeHtml(cardMeta.image)}" alt="">` : '';
@@ -156,6 +179,7 @@ function renderResult(result, comps, cardMeta) {
         <span class="verdict-tag">${good ? 'Grade it' : 'Skip it'}</span>
         <p class="verdict-msg">${escapeHtml(result.verdict)}</p>
         ${rawLine}
+        ${thinNote}
       </div>
     </div>
 
