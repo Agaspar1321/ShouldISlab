@@ -103,16 +103,68 @@ Other ToS terms to design around:
 - **Third-party rights are on us** — GemRate or any other provider is our problem, not
   covered by their agreement.
 
+### Pricing and call accounting — MEASURED 2026-08-03
+
+| Tier | Cost | Calls/mo | Additional | Rate limit |
+|---|---|---|---|---|
+| Free | $0 | 750 | — | 4/s |
+| **Pro** | **$14.95** | 5,000 | $0.0030 | 6/s |
+| Premium | $74.95 | 30,000 | $0.0025 (−20%) | 8/s |
+| Ultra | $199.95 | 100,000 | $0.0020 (−35%) | 10/s |
+
+All tiers include every feature; tiers differ only on volume. Combined with commercial use
+being permitted by default, nothing we need is paywalled.
+
+**Bulk pricing is billed per REQUEST, not per card.** Verified against their own usage
+dashboard: a `POST /v1/pricing/` carrying 5 `card_ids` registered as **1 billable call** —
+identical to a single-card `GET /v1/pricing/{id}`. `GET /v1/subscription/` is explicitly
+free (11 reads, 0 billable). Catalog search is billable.
+
+*Confidence:* the per-request behaviour is measured. **Extrapolating to 100 cards = 1 call
+is not** — the test used 5. Re-measure at 100 before depending on it.
+
+Consequences:
+- Free tier ≈ **75,000 card lookups/month**; Pro ≈ **500,000**
+- A 500-card collection triage ≈ **5 calls**; a 12-card pack ≈ **1 call**
+- V1 today spends **5 sequential calls to price one card** ([server.js:190](server/server.js#L190))
+- **The screener's blocker is legal, not economic.** Call cost was never going to stop us
+  ranking a market; ToS §3.c still might.
+
+The usage dashboard breaks down billable vs free per route and exports CSV — worth checking
+periodically once live to catch a runaway loop.
+
 ### Known gaps in CardSight
 
-- **No pop reports.** Sales-by-grade is *not* population. `PSA 10: 87, PSA 9: 68` does **not**
-  imply a 56% gem rate — those are cards people chose to *sell*, layered on top of the
-  submission bias in §4a. Two stacked selection effects. **Do not use sales counts as a gem
-  rate proxy.** Pop data still has to come from GemRate (or PPT).
+- **Population endpoints exist but return no data.** `/v1/population/card/{card_id}`,
+  `/set/{set_id}`, `/release/{release_id}` are in the spec and are **ungated on the free
+  tier** (HTTP 200, not 403) — but every card tested returns `total_population: 0`, across
+  Pokémon and sports, vintage and modern. Not usable today. **Verified 2026-08-03.**
+- **So sales-by-grade is all we get, and it is *not* population.** `PSA 10: 87, PSA 9: 68`
+  does **not** imply a 56% gem rate — those are cards people chose to *sell*, layered on top
+  of the submission bias in §4a. Two stacked selection effects. **Do not use sales counts as
+  a gem rate proxy.** Pop data still has to come from GemRate (or PPT).
 - **Pipeline is in beta**, self-disclosed: "some listings remain unmatched while the model
   learns." Match completeness unproven — and match quality is what we care most about.
-- **No bulk dumps**, so cost scales with traffic. Bulk-100 mitigates; it doesn't eliminate.
-- **Paid tier pricing is not published anywhere.** This is the open blocker.
+- **No bulk dumps.** Bulk-per-request pricing makes this much less painful than assumed, but
+  we still can't hold a local snapshot (ToS §3.c).
+- **Docs contradict themselves on rate limits.** API reference says Pro 4/s, Premium 6/s,
+  Ultra 8/s; the pricing page says Free 4, Pro 6, Premium 8, Ultra 10 — shifted by a tier.
+  Don't design against either without confirming.
+
+### Also in the spec, unverified
+
+78 endpoints total. Beyond pricing and population: `Grades`, `Marketplace`, `Release
+Calendar`, `Feedback`, **`Collection Management`** and `Collection Card Images`.
+
+They offer server-side collections. That cuts both ways — less to build, but building
+accounts and collections in Postgres *is* Slice 5's resume rep. Likely answer: their catalog
+and pricing, our collection storage.
+
+`/v1/catalog/parallels` is marked "(free)" in the spec, and card images plus autocomplete
+don't count toward usage — so variant disambiguation (§3) may cost nothing. Not measured.
+
+Local copy of the spec: `cardsight-openapi.json` (480KB). Swagger UI at
+[api.cardsight.ai/documentation](https://api.cardsight.ai/documentation).
 
 ### Alternatives (kept, not chosen)
 
@@ -157,14 +209,29 @@ collection or pack into a handful of calls.
 
 Replaced entirely. See §4.
 
-### Also affected — `/api/search` · [server.js:102](server/server.js#L102)
+### Also affected — `/api/search` · [server.js:137](server/server.js#L137)
 
-The `Map`-based dedup at [server.js:123](server/server.js#L123) is a free-text guess today.
-CardSight returns parallel IDs — use them instead of title-keyed dedup. Below a confidence
-threshold the UI must say **"not sure which card this is"** rather than confidently pricing
-the wrong variant. This is the failure mode that quietly makes every downstream number
-wrong, and PPT demonstrably has it (they list `MEWTWO · 1ST EDITION HOLOFOIL` and
-`MEWTWO · UNLIMITED HOLOFOIL` with identical prices).
+The `Map`-based dedup at [server.js:161](server/server.js#L161) keys on `title` alone. That
+is the failure mode that quietly makes every downstream number wrong — PPT demonstrably has
+it, listing `MEWTWO · 1ST EDITION HOLOFOIL` and `MEWTWO · UNLIMITED HOLOFOIL` at identical
+prices. CardSight returns parallel IDs; use those instead. Below a confidence threshold the
+UI must say **"not sure which card this is"** rather than confidently pricing the wrong
+variant.
+
+**Fixable today, without migrating.** `thecardapi.com` returns **37 fields per sale** and we
+use five. Unused and directly relevant:
+
+- `card_number`, `card_set`, `year`, `print_run`, `features` — enough to dedup on identity
+  instead of title, right now
+- `grade`, `grader`, `grading_company`, `cert`
+- `has_grade_qualifier`, `grade_qualifier` — §4c called qualifiers the thing "most
+  calculators ignore entirely." We already receive them.
+- `has_autograph_grade`, `autograph_grade`
+- `price_confirmed` — filter unconfirmed sales out of the median
+- `listing_url`, `platform`, `listing_type`, `bids`
+
+Several items scoped as V2 work are reachable on the current API. Cheap, improves the live
+site, and reduces how much rides on the migration.
 
 ### Unchanged
 
@@ -355,10 +422,13 @@ touching Slice 0, so the median change is a readable diff. No tests in the repo 
 
 ## 9. Open questions
 
-- [ ] **What does CardSight cost above the free tier?** Not published. Blocks everything.
-- [ ] **Does any paid tier permit a full-genre snapshot for ranking?** Decides whether the
-      screener ranks the market or a candidate set. (§2, §6)
-- [ ] Where does pop data come from — GemRate, or PPT alongside CardSight? Cost of the pair?
+- [ ] **Does any paid tier permit a full-genre snapshot for ranking?** The one remaining
+      CardSight email question. Decides whether the screener ranks the market or a candidate
+      set. (§2, §6)
+- [ ] **Is CardSight's population data coming?** Endpoints are live and ungated but empty.
+      Worth asking — if it lands, GemRate drops out of the plan entirely.
+- [ ] Confirm bulk billing at **100** cards, not just 5. (§2)
+- [ ] Where does pop data come from until then — GemRate, or PPT alongside CardSight?
 - [ ] What confidence threshold triggers "not sure which card this is"? (§3)
 - [ ] Does CardSight's beta matching hold up on confusable variants? (§2 verification)
 - [ ] SportsCardsPro commercial redistribution terms — unstated, needs an email. Only
@@ -370,6 +440,15 @@ touching Slice 0, so the median change is a readable diff. No tests in the repo 
 - ~~Truncated grade ladder kills grade 7?~~ — CardSight returns to PSA 4. Moot.
 - ~~Does monetization conflict with the north star?~~ — **Decided: full scope, monetized,
   promoted hard.** Conscious call, made 2026-08-03.
+- ~~What does CardSight cost above the free tier?~~ — Pro $14.95 / Premium $74.95 / Ultra
+  $199.95. See §2.
+- ~~Does a bulk request cost 1 call or 100?~~ — **Per request.** Measured at n=5 against
+  their usage dashboard. Collection triage and the pack opener are both cheap.
+- ~~Does `thecardapi.com` sort its results?~~ — **Yes, `date_desc`.** The pagination cursor
+  literally declares `"sort": "date_desc"`, and `sale_date` is descending on every query
+  while price ordering is ~random. So page 1 is the 25 *most recent* sales, and a median
+  over it is recency-weighted rather than price-biased. The Slice 0 median is defensible;
+  no pagination work needed for correctness.
 
 ---
 
