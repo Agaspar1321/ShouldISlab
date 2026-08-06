@@ -192,6 +192,56 @@ function gemRateToProbabilities(gemRate) {
 //
 // Half grades fold DOWN (8.5 counts as an 8) — conservative, worth less than the
 // grade above. Qualifiers and `auth` fall into the below-ladder remainder.
+// Wilson score interval for a proportion. The point of §4b: 42% across 1,000
+// submissions and 82% across 5 are not the same claim, and a bare percentage
+// cannot tell them apart.
+//
+// Wilson rather than the textbook normal approximation because gem rates live at
+// the extremes — 0.47% on Base Charizard, 86.5% on Chrome Ohtani — where the
+// normal interval produces negative lower bounds and other nonsense.
+function wilsonInterval(successes, total, z = 1.96) {
+    if (!(total > 0) || !(successes >= 0)) return null;
+    const p = successes / total;
+    const z2 = z * z;
+    const denom = 1 + z2 / total;
+    const centre = (p + z2 / (2 * total)) / denom;
+    const margin = (z / denom) * Math.sqrt((p * (1 - p)) / total + z2 / (4 * total * total));
+    return {
+        low: Math.max(0, centre - margin),
+        high: Math.min(1, centre + margin),
+    };
+}
+
+// §4a — pop reports show the distribution of cards people CHOSE to submit, and
+// people submit their best copies. The measured rate is therefore an upper bound
+// on what a random copy off eBay will do.
+//
+// Model: `haircut` is the probability that a given card grades one notch worse
+// than the population implies. Mass shifts down a single rung — a would-be 10
+// becomes a 9, a 9 becomes an 8 — and whatever falls off the bottom joins the
+// below-ladder remainder. One parameter, one sentence to explain, no hidden
+// curve fitting.
+//
+// Default is ZERO. Every number in the table is measured; a non-zero default
+// would be an invented adjustment presented as data, which is the "silent fudge"
+// §4a explicitly warns against. The control is visible and the user decides.
+function applyHaircut(probabilities, haircut) {
+    if (!(haircut > 0)) return probabilities;
+    const h = Math.min(1, haircut);
+    const descending = [...PSA_GRADES].sort((a, b) => b - a);   // [10, 9, 8, 7]
+    const out = {};
+    let carried = 0;   // mass shifted down from the rung above
+
+    for (const grade of descending) {
+        const p = probabilities[grade] || 0;
+        out[grade] = p * (1 - h) + carried;
+        carried = p * h;
+    }
+    // `carried` off the bottom rung is simply dropped — it lands in the
+    // below-ladder remainder, which calculateROI already values at raw.
+    return out;
+}
+
 function populationToProbabilities(pop) {
     const g = pop.grades || {};
     const h = pop.halves || {};
@@ -486,6 +536,8 @@ app.get('/api/comps', async (req, res) => {
     const gradingCost = numOr(req.query.gradingCost, 80);
     const feePct      = numOr(req.query.feePct, 13) / 100;
     const userGemRate = numOr(req.query.gemRate, 30) / 100;
+    // §4a submission-bias adjustment. 0 = trust the population as measured.
+    const haircut = Math.min(90, Math.max(0, numOr(req.query.haircut, 0))) / 100;
 
     if (!CH_ID_RE.test(cardId || '')) {
         return res.status(400).json({ error: 'card_id is required' });
@@ -557,13 +609,17 @@ app.get('/api/comps', async (req, res) => {
         // 12% of CardHedge rows carry no gemrate_id, so the fallback is a normal
         // path, not an error case.
         const population = await getPopulation(gemrateId);
-        const gemRate = population ? population.gemRate : userGemRate;
 
         // Real submission counts when we have them; the invented 70/20/10 split
         // only when we don't. These are very different models — on Base Charizard
         // the guess puts 69.6% of non-10s at PSA 9 against a measured 8.2%.
-        const probabilities = (population && populationToProbabilities(population))
-            || gemRateToProbabilities(gemRate);
+        const measured = (population && populationToProbabilities(population))
+            || gemRateToProbabilities(population ? population.gemRate : userGemRate);
+
+        // The haircut only makes sense against a real population. Applying it to
+        // a figure the user typed would be discounting their own guess back at them.
+        const probabilities = population ? applyHaircut(measured, haircut) : measured;
+        const gemRate = probabilities[10];
 
         const gradeValues = Object.fromEntries(PSA_GRADES.map(g => [g, comps['psa' + g].median]));
         const result = calculateROI({
@@ -576,12 +632,17 @@ app.get('/api/comps', async (req, res) => {
         // same claim.
         const gemRateInfo = population
             ? {
-                rate: population.gemRate,
+                rate: gemRate,                     // after any haircut — what the maths used
+                measuredRate: population.gemRate,  // before it — what the pop report says
+                haircut,
                 source: 'gemrate',
                 psa10Pop: population.psa10Pop,
                 totalPop: population.totalPop,
                 parallel: population.parallel,
                 asOf: population.asOf,
+                // 95% Wilson band on the measured rate. Narrow on 103,626
+                // submissions, wide on 12 — which is the entire point.
+                interval: wilsonInterval(population.psa10Pop, population.totalPop),
                 // The odds of each outcome, so the UI can show the ladder it's
                 // actually betting on rather than just the headline 10-rate.
                 probabilities,
