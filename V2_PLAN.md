@@ -344,8 +344,103 @@ changes every price the site returns.
 | 3 | Probability model rewrite | §4. Haircut, Wilson intervals, grader parameter. The real engineering. |
 | 4 | Investment screener | See below. Promoted — this is where correctness becomes visible. |
 | 5 | Auth (bcrypt/JWT) | Accounts + saved collections. Unlocks §7. Also triggers the ToS deliverable from §2. |
-| 6 | Collection triage | Which of your saved cards to grade. Depends on 2, 3, 5. |
+| 6 | Collection triage | Which of your saved cards to grade, plus the Monte Carlo "grade everything worth grading" number. Depends on 2, 3, 5. See rewrite below. |
 | 7 | Pack Opener | Enter pack price + cards pulled → total raw value, profit vs pack cost, per-card flags. Bulk-100 makes it one call. Frontend candy — **timebox hard, cut first.** |
+
+### Collection architecture — MEASURED 2026-08-06
+
+Supersedes the CardSight-era assumptions below. All numbers measured against live
+CardHedge and GemRate keys; see `CARDHEDGE_EVAL.md` for the full evaluation.
+
+**CardHedge ships purpose-built collection infrastructure**, which changes what we
+build versus what we consume:
+
+| capability | endpoint | measured |
+|---|---|---|
+| price history / market movement | `POST /v1/cards/prices-by-card` | 71 daily points over 180d; pageable back to ~spring 2020 |
+| server-side price tracking | `POST /v1/cards/watchlist` | works; **cap 1,000 cards** |
+| incremental change feed | `POST /v1/cards/watchlist-updates` | cursor-based; `count=0` when caught up |
+
+**The cursor is well-behaved.** Cursors are opaque base64 positions, never expire, and
+replaying an old one re-walks from that point — so a crashed sync worker resumes
+cleanly and the cursor can live in Postgres beside the collection.
+
+**Two constraints that shape everything:**
+
+1. **`watchlist_cap` is 1,000 and scoped to the API KEY, not the end user.** There is no
+   per-user namespace. Every user shares one list.
+2. **A watchlist entry always tracks every grade.** Passing `grade` is silently ignored —
+   the add response returns `grade_label: null`. One card produced **86 events** across
+   every provider and grade it has traded at; five cards produced 262. Budget ~50-85
+   bootstrap events per card. You cannot scope an entry to shrink that.
+
+### The tiering decision — DECIDED 2026-08-06
+
+Collection size and watchlist size are **decoupled**. They were conflated in the earlier
+draft and that was wrong.
+
+- **Collections are unlimited.** Postgres holds every card a user logs. That is our data —
+  ownership, purchase price, condition notes — and nothing about it is constrained by a
+  provider's terms.
+- **The CardHedge watchlist is a shared hot cache**, holding only the deduped union of
+  cards that genuinely warrant push updates. It is an implementation detail of freshness,
+  not a model of what users own.
+
+**Hot / cold split:**
+
+| tier | what | freshness |
+|---|---|---|
+| hot | high-value cards, grading candidates, anything the user flags | watchlisted; nightly delta poll |
+| cold | base cards, commons, low-value logs | last known price, refreshed lazily on view |
+
+**Cold cards still count toward collection total value.** They are simply not re-checked
+nightly — a $2 base card moving 10% does not change a portfolio number, and spending a
+watchlist slot on it starves a $500 card that matters.
+
+This makes the 1,000 cap a *quality-of-freshness* limit rather than a user ceiling. When
+the hot union exceeds 1,000, evict by value rather than refusing collection entries.
+
+**Open with CardHedge:** can the cap be raised, and can watchlists be namespaced per end
+user? This is a harder constraint on the collection product than the rate limit is.
+
+### A per-user card cap is a PRODUCT decision, not a technical one
+
+Capping a v1 collection at ~50 cards is worth doing — it pushes people to log inserts,
+SSPs and genuine grading candidates instead of dumping 800 base commons, which makes
+triage, screening and every nightly job cheaper and better.
+
+But it must not be justified by the watchlist cap. 20 users × 50 cards fills 1,000 at zero
+overlap; overlap helps but not enough. The cap earns its place on product grounds or not
+at all.
+
+### Slice 6 rewrite — "what if I graded everything worth grading"
+
+Sum `expectedProfit` across cards where it is positive. Zero new API surface — the per-card
+maths already exists and runs off cached comps.
+
+**The trap, and it is the same one §1 accuses PokemonPriceTracker of.** Expected profit is
+a *mean*, and grading outcomes are violently skewed. Fifty cards each holding a 0.5% shot
+at a PSA 10 produce a total dominated by rare hits: the headline reads "+$5,000 upside"
+while the modal outcome is a fraction of that — and the user pays 50 × $80 = **$4,000 in
+fees up front** to find out. Shipping a naked sum-of-EV would be the exact error this
+product exists to correct, committed by us.
+
+**Build the distribution instead.** We now hold a real per-card probability distribution
+(§4, `populationToProbabilities`). Monte Carlo it — sample each card's grade from its own
+distribution, compute realised profit, repeat ~10k times. Pure arithmetic over cached
+data, zero upstream calls. Surface:
+
+```
+Grade all 12 worthwhile cards — $960 in fees
+Expected:     +$1,450
+Most likely:  +$310
+1 in 5 chance you lose money
+```
+
+No competitor can show that, and it falls out of work already done rather than needing new
+data. `price-updates` is NOT the feed for any of this — measured, it is a global firehose
+of every sale CardHedge ingests (a Larry Fitzgerald Color Blast, a 1959 Topps Pierce), not
+scoped to a collection, and it looks capped at 200 rows per call. Use `watchlist-updates`.
 
 ### Slice 2 rewrite — Postgres is user data, not a price mirror
 
