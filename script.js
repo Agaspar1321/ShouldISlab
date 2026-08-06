@@ -31,8 +31,15 @@ function assumptionsQS() {
   const num = (id) => parseFloat((document.getElementById(id).value || '').replace(/[^0-9.]/g, ''));
   const gradingCost = num('gradingCost') || 80;
   const feePct      = num('feePct')      || 13;
+  // gemRate is now only a fallback for cards with no population data.
   const gemRate     = num('gemRate')     || 50;
-  return `gradingCost=${gradingCost}&feePct=${feePct}&gemRate=${gemRate}`;
+  // Condition IS the haircut. Pop reports measure cards people chose to submit,
+  // and they submit their best — so the only question that matters is how yours
+  // compares. That's information only the owner has, which is why we ask rather
+  // than derive it.
+  const condEl      = document.getElementById('condition');
+  const haircut     = condEl ? (parseFloat(condEl.value) || 0) : 0;
+  return `gradingCost=${gradingCost}&feePct=${feePct}&gemRate=${gemRate}&haircut=${haircut}`;
 }
 
 // ---------- search ----------
@@ -72,6 +79,173 @@ async function runSearch() {
     pickList.innerHTML = '<p class="pick-status">Search failed — make sure the server is running, or enter values manually below.</p>';
   }
 }
+
+// ---------- condition diagrams ----------
+// Drawn, not photographed. Card art is licensed IP and any photo of a card
+// carries both the publisher's copyright and the photographer's — so eBay grabs
+// and PSA's archive images are out. Diagrams also read better at this size:
+// edge whitening and surface scratches need macro photography and raking light
+// to register in a photo, and turn to mush at 400px.
+//
+// 5:7 viewBox matches a real card. Colours come from CSS vars so it themes.
+//
+// centre  — how far the art window is pushed off true (0 = dead centre)
+// round   — corner radius on the art window; higher reads as a softened corner
+// white   — edge whitening speckles
+// scratch — a surface line catching the light
+function conditionDiagram({ centre = 0, round = 1, white = 0, scratch = false, marks = [] }) {
+  const W = 200, H = 280, border = 22;
+  // Push the art window off-centre; the border width difference is the tell.
+  const x = border + centre, y = border + centre * 0.6;
+  const w = W - border * 2, h = H - border * 2;
+
+  const speckles = white
+    ? Array.from({ length: white }, (_, i) => {
+        const t = (i + 1) / (white + 1);
+        return `<rect x="${(W - 8) * t}" y="2" width="${3 + (i % 3)}" height="4" rx="1" fill="var(--inset)" opacity="0.95"/>
+                <rect x="2" y="${(H - 10) * t}" width="4" height="${3 + (i % 2)}" rx="1" fill="var(--inset)" opacity="0.85"/>`;
+      }).join('')
+    : '';
+
+  // Ring on the flaw, label in the margin OUTSIDE the card with a leader line —
+  // labels sitting on top of the artwork were unreadable and clipped at the edges.
+  const callouts = marks.map(m => {
+    const r = m.r || 15;
+    const above = m.y < H / 2;
+    const ly = above ? -10 : H + 22;          // label sits in the padded margin
+    const leaderY = above ? m.y - r - 2 : m.y + r + 2;
+    return `
+    <circle cx="${m.x}" cy="${m.y}" r="${r}" fill="none"
+            stroke="var(--red)" stroke-width="2" stroke-dasharray="4 3" opacity="0.9"/>
+    <line x1="${m.x}" y1="${leaderY}" x2="${m.x}" y2="${above ? ly + 4 : ly - 12}"
+          stroke="var(--red)" stroke-width="1.5" opacity="0.55"/>
+    <text x="${m.x}" y="${ly}" text-anchor="middle"
+          font-size="13" font-weight="700" fill="var(--red-deep)">${m.label}</text>`;
+  }).join('');
+
+  // Padded viewBox so callout labels and leader lines have margin to live in
+  // rather than being clipped against the card edge.
+  return `
+  <svg class="cond-svg" viewBox="-18 -26 ${W + 36} ${H + 62}" role="img" aria-label="Condition example">
+    <rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="7"
+          fill="var(--panel-2)" stroke="var(--line-strong)" stroke-width="2"/>
+    ${speckles}
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${round}"
+          fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+    <circle cx="${x + w / 2}" cy="${y + h * 0.38}" r="${w * 0.2}" fill="var(--teal)" opacity="0.35"/>
+    <rect x="${x + w * 0.15}" y="${y + h * 0.66}" width="${w * 0.7}" height="5" rx="2" fill="var(--teal)" opacity="0.3"/>
+    <rect x="${x + w * 0.15}" y="${y + h * 0.76}" width="${w * 0.45}" height="5" rx="2" fill="var(--teal)" opacity="0.22"/>
+    ${scratch ? `<line x1="${x + w * 0.18}" y1="${y + h * 0.2}" x2="${x + w * 0.72}" y2="${y + h * 0.55}"
+          stroke="var(--inset)" stroke-width="2" opacity="0.9"/>` : ''}
+    ${callouts}
+  </svg>`;
+}
+
+// ---------- condition examples ----------
+// What a grader is actually looking at, in the order they look at it. The odds
+// shift is ours, not measured — see V2_PLAN §4a. Said plainly in `effect`.
+const CONDITIONS = [
+  {
+    value: '0',
+    title: 'Gem Mint',
+    sub: 'The card you\'d bet on. This is what the population report is mostly made of.',
+    checks: [
+      '<strong>Centring</strong> — borders look even top-to-bottom and left-to-right',
+      '<strong>Corners</strong> — all four come to a point, no softness under a light',
+      '<strong>Edges</strong> — no whitening when you tilt it against a dark background',
+      '<strong>Surface</strong> — no print lines, scratches or dimples when angled to a lamp',
+    ],
+    effect: 'No shift. You\'re submitting the same kind of card everyone else in the pop report submitted.',
+    art: { centre: 0, round: 1 },
+  },
+  {
+    value: '25',
+    title: 'Near Mint',
+    sub: 'Looks clean at arm\'s length, but you haven\'t gone over it under good light.',
+    checks: [
+      'Nothing jumps out, but you haven\'t checked corners closely',
+      'Centring looks fine but you haven\'t measured it',
+      'Card came from a pack, binder or a sleeve and was handled normally',
+      'No obvious whitening, but you haven\'t tilted it to look',
+    ],
+    effect: 'Shifts a quarter of the odds down one grade. Most cards land here, and most people overestimate their own copy.',
+    art: { centre: 3, round: 3 },
+  },
+  {
+    value: '50',
+    title: 'Light wear',
+    sub: 'One flaw you can point to.',
+    checks: [
+      'A single soft corner, or one small edge nick',
+      'Slightly off-centre — noticeably more border on one side',
+      'A faint surface scratch visible only at an angle',
+      'Otherwise clean',
+    ],
+    effect: 'Shifts half the odds down one grade. One visible flaw is usually the difference between a 9 and a 10.',
+    art: {
+      centre: 8, round: 7, scratch: true,
+      marks: [{ x: 32, y: 36, r: 15, label: 'soft corner' }],
+    },
+  },
+  {
+    value: '75',
+    title: 'Visible wear',
+    sub: 'Flaws you\'d mention if you were selling it honestly.',
+    checks: [
+      'Clear whitening along edges or corners',
+      'Obviously off-centre',
+      'Surface marks, print lines or a crease',
+      'Been loose in a box, binder or a stack',
+    ],
+    effect: 'Shifts three quarters of the odds down one grade. At this point grading is usually about authentication, not upside.',
+    art: {
+      centre: 15, round: 11, white: 5, scratch: true,
+      marks: [
+        { x: 96, y: 12, r: 12, label: 'edge whitening' },
+        { x: 176, y: 240, r: 15, label: 'off-centre' },
+      ],
+    },
+  },
+];
+
+(function setupConditionHelp() {
+  const dlg = document.getElementById('condDialog');
+  if (!dlg) return;
+  const select = document.getElementById('condition');
+  let i = 0;
+
+  const render = () => {
+    const c = CONDITIONS[i];
+    document.getElementById('condTitle').textContent = c.title;
+    document.getElementById('condSub').textContent = c.sub;
+    document.getElementById('condArt').innerHTML = conditionDiagram(c.art || {});
+    document.getElementById('condList').innerHTML = c.checks.map(x => `<li>${x}</li>`).join('');
+    document.getElementById('condEffect').textContent = c.effect;
+    document.getElementById('condDots').innerHTML = CONDITIONS
+      .map((_, n) => `<span class="cond-dot${n === i ? ' is-on' : ''}"></span>`).join('');
+    document.getElementById('condPrev').disabled = i === 0;
+    document.getElementById('condNext').disabled = i === CONDITIONS.length - 1;
+  };
+
+  const open = () => {
+    // Land on whatever they've already picked rather than always at the start.
+    const found = CONDITIONS.findIndex(c => c.value === select.value);
+    i = found >= 0 ? found : 0;
+    render();
+    dlg.showModal();
+  };
+
+  document.getElementById('conditionHelp').addEventListener('click', open);
+  document.getElementById('condClose').addEventListener('click', () => dlg.close());
+  document.getElementById('condPrev').addEventListener('click', () => { if (i > 0) { i--; render(); } });
+  document.getElementById('condNext').addEventListener('click', () => { if (i < CONDITIONS.length - 1) { i++; render(); } });
+  document.getElementById('condPick').addEventListener('click', () => {
+    select.value = CONDITIONS[i].value;
+    dlg.close();
+  });
+  // Click the backdrop to dismiss.
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+})();
 
 searchBtn.addEventListener('click', runSearch);
 cardSearch.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
@@ -141,7 +315,15 @@ manualBtn.addEventListener('click', async () => {
 // ---------- render a verdict ----------
 function renderResult(result, comps, cardMeta, gemRate) {
   const good  = result.expectedProfit > 10;
-  const money = (n) => (n < 0 ? `-$${Math.abs(n).toFixed(2)}` : `$${n.toFixed(2)}`);
+  // Thousands separators everywhere. A PSA 10 Jordan comes back at 232173 and
+  // reading that as $232,173 rather than $232173 is the difference between a
+  // number and a smear.
+  const group = (n, dp) => Number(n).toLocaleString('en-US', {
+    minimumFractionDigits: dp, maximumFractionDigits: dp,
+  });
+  const money = (n) => (n < 0 ? `-$${group(Math.abs(n), 2)}` : `$${group(n, 2)}`);
+  // Comp medians are already whole dollars — decimals on them are noise.
+  const price = (n) => `$${group(n, 0)}`;
   const pct   = (n) => (n * 100).toFixed(n < 0.01 ? 2 : 1) + '%';
 
   // How many sales a price needs before we treat it as a market price rather than
@@ -169,14 +351,14 @@ function renderResult(result, comps, cardMeta, gemRate) {
     if (!hasPrice) {
       priceLine = 'no recent sales';
     } else if (c.estimated) {
-      priceLine = `$${c.avg}`;
+      priceLine = price(c.avg);
       const why = c.estimate && c.estimate.explanation ? escapeHtml(c.estimate.explanation) : '';
       flag = ` <span class="est-flag" title="${why}">estimated</span>`;
     } else if (n != null) {
-      priceLine = `$${c.avg} · ${n} sale${n === 1 ? '' : 's'}`;
+      priceLine = `${price(c.avg)} · ${n} sale${n === 1 ? '' : 's'}`;
       flag = thin ? ' <span class="thin-flag">thin</span>' : '';
     } else {
-      priceLine = `$${c.avg}`;
+      priceLine = price(c.avg);
     }
 
     // The odds of landing on this rung — the number that decides the verdict, and
@@ -211,10 +393,24 @@ function renderResult(result, comps, cardMeta, gemRate) {
   // and 82% across 5 are not the same claim.
   let gemBlock = '';
   if (gemRate && gemRate.source === 'gemrate') {
+    // The 95% band is the honesty signal. 0.43–0.51% off 103,626 submissions is a
+    // measurement; 8.9–53.2% off 12 is a shrug. The old UI rendered both as a
+    // single confident percentage.
+    const iv = gemRate.interval;
+    const band = iv
+      ? `<span class="gem-band">95% confident: ${pct(iv.low)} – ${pct(iv.high)}</span>` : '';
+
+    // If a haircut is applied, show what was measured and what we used. Never let
+    // an adjusted number masquerade as the population's own figure.
+    const cut = gemRate.haircut > 0
+      ? `<span class="gem-cut">${pct(gemRate.measuredRate)} measured, cut ${Math.round(gemRate.haircut * 100)}% for submission bias</span>` : '';
+
     gemBlock = `
       <div class="gem-block">
         <span class="gem-rate">${pct(gemRate.rate)} gem rate</span>
+        ${cut}
         <span class="gem-n">${gemRate.psa10Pop.toLocaleString()} PSA 10s from ${gemRate.totalPop.toLocaleString()} submissions${gemRate.parallel ? ' · ' + escapeHtml(gemRate.parallel) : ''}</span>
+        ${band}
         <span class="gem-src">Population data by GemRate${gemRate.asOf ? ', as of ' + escapeHtml(gemRate.asOf) : ''}</span>
       </div>`;
   } else if (gemRate) {
@@ -249,7 +445,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
   const cardName = cardMeta && cardMeta.title
     ? `<p class="verdict-card-name">${escapeHtml(cardMeta.title)}</p>` : '';
   const rawLine = comps && comps.raw && comps.raw.avg > 0
-    ? `<span class="verdict-raw">Raw: $${comps.raw.avg}${comps.raw.count != null ? ' · ' + comps.raw.count + ' sales' : ''}</span>` : '';
+    ? `<span class="verdict-raw">Raw: ${price(comps.raw.avg)}${comps.raw.count != null ? ' · ' + comps.raw.count + ' sales' : ''}</span>` : '';
 
   results.className = good ? 'is-good' : 'is-bad';
   results.innerHTML = `
@@ -296,6 +492,5 @@ function renderResult(result, comps, cardMeta, gemRate) {
       ${gradeRow(7)}
       ${belowRow}
     </div>
-    <p class="support-note">Saved you from a bad grade? <a href="https://buymeacoffee.com/shouldislab" target="_blank" rel="noopener">☕ Buy me a coffee</a></p>
   `;
 }

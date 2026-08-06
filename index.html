@@ -38,12 +38,12 @@
     <p class="eyebrow">a card grading calculator</p>
     <h1>Know before you <span>slab&nbsp;it.</span></h1>
     <p class="lede">
-      Search a card and ShouldISlab pulls its raw and graded comps, then runs the math most calculators dodge. Everyone shows you the dream — what you'd make if it gems a 10. This one weighs the <strong>real</strong> odds of every grade, takes out grading and selling fees, and hands you your true expected profit, your break-even grade, and a straight answer when the smart move is to just not grade it.
+      Every other calculator shows you the dream — what you'd make if it gems a 10. ShouldISlab weighs that against the <strong>real odds</strong>, taken from actual PSA submission counts, not a number someone guessed. It prices every grade from recent sales, subtracts grading and selling fees, and tells you your true expected profit, your break-even grade, and when the smart move is to not grade at all.
     </p>
     <div class="hero-stats">
-      <div><strong>4</strong><span>grades modeled</span></div>
-      <div><strong>%</strong><span>gem-rate weighted</span></div>
-      <div><strong>$</strong><span>save you money</span></div>
+      <div><strong>50</strong><span>sales behind each price</span></div>
+      <div><strong>95%</strong><span>confidence shown</span></div>
+      <div><strong>Free</strong><span>no signup</span></div>
     </div>
   </section>
 
@@ -59,7 +59,7 @@
         <button id="searchBtn" type="button">Search</button>
       </div>
 
-      <p class="search-note">⚠ <strong>Demo — treat these as ballpark.</strong> Prices are averaged across <em>all</em> matching listings, which can mix different parallels of the same card, and this free tier only sees the last <strong>3 days</strong> of sales. For a specific card, use <strong>manual entry</strong> below. Popular base cards work best.</p>
+      <p class="search-note"><strong>Pick the exact version.</strong> Base, Shadowless and 1st Edition are separate cards — often 10x apart. Each grade is the <strong>median of up to 50 recent sales</strong>, and the odds come from <strong>real PSA submission counts</strong>. Cards that rarely sell can have gaps in the ladder; those are labelled as estimates.</p>
 
       <div id="pickList" class="pick-grid">
         <p class="pick-status">Search a card to pull recent sales and a grade-or-skip verdict.</p>
@@ -70,10 +70,40 @@
         <div class="assumptions-row">
           <div class="field"><label for="gradingCost">Grading cost</label><input id="gradingCost" inputmode="decimal" value="80"></div>
           <div class="field"><label for="feePct">Selling fee</label><input id="feePct" inputmode="decimal" value="13"></div>
-          <div class="field"><label for="gemRate">Gem rate</label><input id="gemRate" inputmode="decimal" value="50"></div>
+          <div class="field">
+            <label for="condition">Your card's condition <button type="button" class="help-dot" id="conditionHelp" aria-label="What do these mean?">?</button></label>
+            <select id="condition">
+              <option value="0">Gem Mint</option>
+              <option value="25" selected>Near Mint</option>
+              <option value="50">Light wear</option>
+              <option value="75">Visible wear</option>
+            </select>
+          </div>
         </div>
-        <p class="field-hint">Not sure on gem rate? Look up the card on <span>gemrate.com</span>.</p>
+        <p class="field-hint">Gem rates come from real PSA submissions — and people send in their <em>best</em> copies, so those odds flatter a card pulled at random. Telling us how yours actually looks shifts the odds to match.</p>
+        <input type="hidden" id="gemRate" value="50">
       </div>
+
+      <!-- Condition examples. Static content, opened from the ? next to the selector. -->
+      <dialog class="cond-dialog" id="condDialog">
+        <div class="cond-head">
+          <h3 id="condTitle">Gem Mint</h3>
+          <button type="button" class="cond-close" id="condClose" aria-label="Close">&times;</button>
+        </div>
+        <p class="cond-sub" id="condSub"></p>
+        <div class="cond-body">
+          <div class="cond-art" id="condArt"></div>
+          <ul class="cond-list" id="condList"></ul>
+        </div>
+        <p class="cond-effect" id="condEffect"></p>
+        <p class="cond-ref">Want real photos? PSA's <a href="https://www.psacard.com/photograde" target="_blank" rel="noopener">Photograde&trade;</a> shows graded examples of every card at every grade — free.</p>
+        <div class="cond-nav">
+          <button type="button" id="condPrev">&larr; Prev</button>
+          <span class="cond-dots" id="condDots"></span>
+          <button type="button" id="condNext">Next &rarr;</button>
+        </div>
+        <button type="button" class="cond-pick" id="condPick">Use this one</button>
+      </dialog>
 
       <details class="manual-fallback">
         <summary>Prices not showing? Enter them manually</summary>
@@ -115,20 +145,8 @@
     </section>
   </main>
 
-  <section class="waitlist" id="waitlist">
-    <h2>Want the Pro version?</h2>
-    <p class="waitlist-pitch">
-      You're on the free demo: ballpark prices from the last few days, and you enter the gem rate yourself. Pro upgrades both — <em>exact per-card comps</em> (no more blended parallels), deeper price history you can actually trust, and an <em>auto-filled gem rate</em> so you skip the lookup entirely. Point it at your whole collection and it runs the numbers in one shot. Drop your email and I'll ping you the day it's live.
-    </p>
-    <form action="https://formspree.io/f/mzdllbbj" method="POST" class="waitlist-form">
-      <input type="email" name="email" placeholder="you@email.com" required>
-      <button type="submit">Join the waitlist</button>
-    </form>
-  </section>
-
   <footer class="site-footer">
     <span class="footer-brand">ShouldISlab</span>
-    <a class="footer-support" href="https://buymeacoffee.com/shouldislab" target="_blank" rel="noopener">☕ Support</a>
     <span class="footer-note">Estimates only — not financial advice. Comps move fast.</span>
   </footer>
 
