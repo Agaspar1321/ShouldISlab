@@ -151,9 +151,10 @@ has none today. Lands with auth (Slice 5).
 CardHedge bills **per category** at a pre-revenue rate; GemRate is a flat developer tier.
 Single-category plus population is the cheaper configuration; adding sports is roughly a
 50% increase on the total. **Exact quoted figures are in the local handoff notes, not here
-— they are private rates from an email thread, not published pricing.** CardHedge publishes no API pricing and exposes **no
-usage meter endpoint**, so per-call cost is not measurable — protocol point 5 stays
-unverified until they ship a meter. Budget the flat rate and ignore per-call economics.
+— they are private rates from an email thread, not published pricing.**
+
+CardHedge publishes no API pricing and exposes **no usage meter endpoint**, so per-call cost
+is not measurable — protocol point 5 stays unverified until they ship a meter. Budget the flat rate and ignore per-call economics.
 
 **The binding constraint is the rate limit, not the price. MEASURED: 10 requests per ~35s
 window**, answered with `Retry-After: 34` ([server.js:22](server/server.js#L22)). One verdict
@@ -1157,11 +1158,68 @@ signups:
 - **Alert opt-in rate**, and opens per alert
 - **Verdicts per returning user per month** — under ~2 this is a one-time lookup and the
   collection trackers win on frequency
-- **Affiliate clicks per verdict** (eBay Partner Network, already in the footer) — the only
-  revenue that works *without* return visits, which makes it the fallback if returns are flat
+- **Affiliate clicks per verdict** — the only revenue that works *without* return visits,
+  which makes it the fallback if returns are flat. **Note: eBay Partner Network is NOT in the
+  code.** This plan has claimed it was "already in the footer" since 2026-08-03; it isn't, on
+  either page. Building it is step 2 of the ladder below.
 
 **Pick the return-rate threshold before launch, not after seeing the data.** A number chosen
 afterwards will be whatever the data happened to produce.
 
 **Drop the old ~50-signup waitlist goal.** It was validation for a premium tier, and the
 current plan says validate returns first. Replace it with a return-rate bar.
+
+### Paid acquisition — not yet, and search before social — DECIDED 2026-09-21
+
+Revisit this decision when the ladder below clears, not before. Writing the reasoning down
+so it doesn't get relitigated every few months.
+
+**Meta ads are the wrong shape for this product.** "Is it worth grading my Charizard" is a
+*query* — someone has a card in front of them and a specific question. Meta has interruption,
+not queries. Paying to put a decision tool in front of people who are not making that
+decision is the worst available match between channel and product.
+
+Note the revealed preference: every competitor in §11 runs SEO-content-with-a-tool-attached
+and **none of them run social ads.** A dozen companies in this exact niche reached the same
+conclusion independently.
+
+**Four things make paid pointless today, on any platform:**
+
+1. **No analytics exist.** Not gtag, not Plausible, not anything, on either page. Ads without
+   conversion tracking is setting money on fire with extra steps.
+2. **No conversion event to optimise toward.** The product is free and the affiliate link is
+   not in the code. An ad platform's algorithm has nothing to learn from.
+3. **Paid amplifies a leaky bucket.** It works when LTV > CAC. LTV is currently zero, and
+   whether usage is too episodic to monetise is *the* open question in this plan. No CAC is
+   low enough against zero.
+4. **It competes directly with runway.** Ad spend is measured in fractions of a month of API
+   access, on finite funding.
+
+**The one legitimate use is buying information, not users.** Paid traffic is a fast,
+controlled way to get a retention baseline — a small spend buys a few hundred visitors on
+demand, where Reddit and Discord grinding takes weeks to reach the same sample. That argues
+for spending on measurement. It still does not argue for Meta.
+
+**If traffic ever gets bought, buy search.** Google Search on long-tail grading queries
+("is it worth grading psa <card>"). Nobody is bidding on those, so they should be cheap, and
+the click arrives from someone in exactly the moment the product serves.
+
+The real value is that **it tests the SEO thesis before the SEO work.** This section plans
+hand-written pages for 20-30 high-volume cards — months of effort on an unvalidated
+assumption. A small search test on those same queries says whether they convert *first*. No
+means months saved; yes means building SEO with evidence.
+
+**The free version of the Meta play:** card collecting has enormous, active Facebook Groups.
+Organic participation there is the same pattern as Reddit and Discord — answer a real "should
+I grade this" question with real output. Same audience, zero spend, same 5 hours/week.
+
+#### The ladder — in this order
+
+1. **Add analytics.** Returning-visitor data specifically, not pageviews. Lightweight and
+   privacy-friendly (Plausible, Umami).
+2. **Add the eBay affiliate to the max-buy flow**, where purchase intent actually is. Some
+   conversion event has to exist before any ad platform is useful.
+3. **Free channels for a baseline** — Discords, Reddit answers, Facebook Groups.
+4. **Then, optionally, a small Google Search test** as an SEO thesis check.
+5. **Meta only if there is ever revenue per user to optimise against** — and even then,
+   search will probably still beat it for this product.
