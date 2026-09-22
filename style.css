@@ -634,10 +634,17 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 /* --- pick grid --- */
 .pick-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  /* auto-fill, not a fixed count: the picker lives in panels of very different
+     widths (and stacks on narrow screens), and a fixed 2 columns made each card
+     grow to fill whatever it was given. */
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 0.85rem;
   margin-top: 1.1rem;
   padding: 0.15rem;
+  /* 19 results at full height buried the assumptions and the verdict under a
+     5,000px wall of card art. Scroll the picker instead of the page. */
+  max-height: 30rem;
+  overflow-y: auto;
 }
 .pick-status {
   grid-column: 1 / -1;
@@ -663,12 +670,13 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 .pick-card img {
   width: 100%;
   aspect-ratio: 3 / 4;
+  max-height: 168px;
   object-fit: contain;
   border-radius: 6px;
   background: rgba(47, 40, 32, 0.05);
 }
-.pick-name { font-size: 0.92rem; font-weight: 600; color: var(--text); line-height: 1.3; }
-.pick-set { font-size: 0.8rem; color: var(--faint); }
+.pick-name { font-size: 0.85rem; font-weight: 600; color: var(--text); line-height: 1.3; }
+.pick-set { font-size: 0.74rem; line-height: 1.35; color: var(--faint); }
 
 /* --- assumptions --- */
 .assumptions { margin-top: 1.3rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
@@ -799,6 +807,109 @@ input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
   font-size: 0.95rem; font-weight: 700; color: #fff;
   background: var(--teal); border: none; border-radius: var(--r-sm);
 }
+
+/* --- /invest page --- */
+.app--invest { grid-template-columns: 0.9fr 1.1fr; }   /* the deal panel carries more */
+.deal-head { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.1rem; }
+.deal-sub { display: block; margin-top: 0.35rem; font-size: 0.78rem; color: var(--faint); }
+/* 'At any price' is a verdict, not a number — red, and sized to read as prose. */
+.buy-price--neg { color: var(--red-deep); font-size: 1.5rem; }
+
+.slider-wrap { margin-bottom: 1.1rem; }
+.slider-wrap label {
+  display: block; margin-bottom: 0.45rem;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--muted);
+}
+.slider-wrap label strong {
+  font-family: "Anton", sans-serif; font-weight: 400; font-size: 1.15rem;
+  letter-spacing: 0; color: var(--gold-deep); margin-left: 0.3rem;
+}
+#priceSlider {
+  width: 100%; padding: 0; margin: 0; cursor: grab;
+  appearance: none; -webkit-appearance: none;
+  height: 6px; border: none; border-radius: 3px; background: var(--line-strong);
+}
+#priceSlider:active { cursor: grabbing; }
+#priceSlider::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--gold); border: 3px solid var(--inset);
+  box-shadow: 0 2px 6px rgba(70, 50, 25, 0.3);
+}
+#priceSlider::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--gold); border: 3px solid var(--inset);
+  box-shadow: 0 2px 6px rgba(70, 50, 25, 0.3);
+}
+.slider-ends {
+  display: flex; justify-content: space-between;
+  margin-top: 0.3rem; font-size: 0.7rem; color: var(--faint);
+}
+
+.strategy { margin-top: 1.2rem; }
+.strategy h3 {
+  font-family: "Anton", sans-serif; font-weight: 400; font-size: 1rem;
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.6rem;
+}
+.strategy-row {
+  display: grid; grid-template-columns: auto 1fr auto;
+  gap: 0.75rem; align-items: baseline;
+  padding: 0.55rem 0.75rem; margin-bottom: 0.4rem;
+  border-radius: var(--r-sm); background: rgba(47, 40, 32, 0.05);
+}
+/* The winning strategy is marked, because "which one" is the actual question. */
+.strategy-row.is-better { background: var(--teal-soft); box-shadow: inset 3px 0 0 var(--teal); }
+.strategy-name { font-weight: 700; font-size: 0.9rem; color: var(--teal-deep); }
+.strategy-sub  { font-size: 0.76rem; color: var(--faint); }
+.strategy-net  { font-weight: 700; font-size: 0.95rem; font-variant-numeric: tabular-nums; text-align: right; }
+.strategy-net.pos { color: var(--green-deep); }
+.strategy-net.neg { color: var(--red); }
+.strategy-note { margin-top: 0.5rem; font-size: 0.78rem; line-height: 1.5; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .app--invest { grid-template-columns: 1fr; }
+}
+
+/* --- max buy price + outcome distribution --- */
+/* Gold rather than teal: this is the number someone acts on with their own money,
+   and it should not read as another calm stat. */
+.buy-block {
+  margin-top: 1.1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--gold-soft);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--gold-soft);
+}
+.buy-label {
+  display: block; font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted);
+}
+.buy-price {
+  display: block; margin-top: 0.15rem;
+  font-family: "Anton", sans-serif; font-weight: 400; font-size: 1.9rem;
+  line-height: 1.1; color: var(--gold-deep);
+}
+/* The honest half. Deliberately full-size body text, not fine print — a
+   break-even without its downside is the promise the category already makes. */
+.buy-risk {
+  margin: 0.5rem 0 0.7rem;
+  font-size: 0.83rem; line-height: 1.5; color: var(--muted);
+}
+.buy-risk strong { color: var(--text); }
+
+.buy-outcomes { border-top: 1px solid var(--gold-soft); padding-top: 0.5rem; }
+.buy-row {
+  display: grid; grid-template-columns: 1fr auto auto;
+  gap: 0.75rem; align-items: baseline;
+  padding: 0.2rem 0; font-size: 0.8rem;
+}
+.buy-grade { color: var(--muted); }
+.buy-odds  { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--faint); min-width: 3.4em; text-align: right; }
+.buy-net   { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 5.5em; text-align: right; }
+.buy-net.pos { color: var(--green-deep); }
+.buy-net.neg { color: var(--red); }
 
 /* The confidence band. Given equal weight to the rate itself on purpose — a
    percentage without its interval is the claim this app exists to stop making. */

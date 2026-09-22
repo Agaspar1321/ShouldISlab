@@ -421,6 +421,38 @@ function renderResult(result, comps, cardMeta, gemRate) {
       </div>`;
   }
 
+  // What not to pay, and what actually happens if you do.
+  //
+  // A break-even alone is a promise, and promising upside is what the rest of the
+  // category already does. The distribution is the honest half: on Base Charizard
+  // the expected value is carried by a 0.5% shot at a 10 while the typical outcome
+  // is a card that grades 6 or below. Both numbers, or neither.
+  let buyBlock = '';
+  if (result.maxBuy > 0 && result.ifBought) {
+    const d = result.ifBought;
+    const risk = d.lossOdds
+      ? `about <strong>1 in ${d.lossOdds}</strong> chance you lose money`
+      : `a <strong>${pct(d.lossProb)}</strong> chance you lose money`;
+    buyBlock = `
+      <div class="buy-block">
+        <span class="buy-label">Buying it to grade? Don't pay over</span>
+        <span class="buy-price">${money(result.maxBuy)}</span>
+        <p class="buy-risk">
+          That's the break-even — at it you make nothing on average. Pay it and
+          the typical result is <strong>${money(d.median)}</strong> (${escapeHtml(d.medianLabel)}),
+          with ${risk}.
+        </p>
+        <div class="buy-outcomes">
+          ${d.outcomes.map(o => `
+            <div class="buy-row">
+              <span class="buy-grade">${escapeHtml(o.label)}</span>
+              <span class="buy-odds">${pct(o.prob)}</span>
+              <span class="buy-net ${o.net < 0 ? 'neg' : 'pos'}">${money(o.net)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
   // One plain-English caveat covering everything the verdict leaned on.
   const thinSources = [];
   if (comps && isThin(comps.raw)) thinSources.push('raw');
@@ -492,5 +524,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
       ${gradeRow(7)}
       ${belowRow}
     </div>
+
+    ${buyBlock}
   `;
 }
