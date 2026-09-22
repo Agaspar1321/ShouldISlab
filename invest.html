@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShouldISlab — What should I pay?</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="2" width="28" height="40" rx="6" fill="#fffdf6" stroke="#2c8378" stroke-width="3"/>
+          <rect x="8" y="6" width="18" height="5" rx="2" fill="#2c8378"/>
+          <line x1="17" y1="37" x2="17" y2="21" stroke="#cf4436" stroke-width="4" stroke-linecap="round"/>
+          <polygon points="10,23 17,13 24,23" fill="#cf4436"/>
+        </svg>
+      </span>
+      <span class="brand-name"><span class="brand-should">Should</span><span class="brand-i">I</span><span class="brand-accent">Slab</span></span>
+    </a>
+    <nav class="topnav">
+      <a href="/">Calculator</a>
+      <a class="btn-ghost" href="/invest">What to pay</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <p class="eyebrow">buying to flip or grade</p>
+    <h1>What should you <span>pay?</span></h1>
+    <p class="lede">
+      Find a raw card and this works out the most you can pay and still come out ahead —
+      then shows you what actually happens at that price, including how often you lose.
+      Move the slider to price your own deal.
+    </p>
+  </section>
+
+  <main class="app app--invest" id="calc">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Find the card</h2>
+        <span class="chip">Search</span>
+      </div>
+
+      <div class="search-bar">
+        <input id="cardSearch" placeholder="Search a card… e.g. charizard base set">
+        <button id="searchBtn" type="button">Search</button>
+      </div>
+
+      <p class="search-note"><strong>Pick the exact version.</strong> Base, Shadowless and 1st Edition are separate cards — often 10x apart.</p>
+
+      <div id="pickList" class="pick-grid">
+        <p class="pick-status">Search a card to price a deal.</p>
+      </div>
+
+      <div class="assumptions">
+        <span class="assumptions-label">Your assumptions</span>
+        <div class="assumptions-row">
+          <div class="field"><label for="gradingCost">Grading cost</label><input id="gradingCost" inputmode="decimal" value="80"></div>
+          <div class="field"><label for="feePct">Selling fee</label><input id="feePct" inputmode="decimal" value="13"></div>
+          <div class="field">
+            <label for="condition">Condition</label>
+            <select id="condition">
+              <option value="0">Gem Mint</option>
+              <option value="25" selected>Near Mint</option>
+              <option value="50">Light wear</option>
+              <option value="75">Visible wear</option>
+            </select>
+          </div>
+        </div>
+        <input type="hidden" id="gemRate" value="50">
+      </div>
+    </section>
+
+    <section class="panel panel--results">
+      <div class="panel-head">
+        <h2>The deal</h2>
+        <span class="chip">Pricing</span>
+      </div>
+      <div id="deal">
+        <div class="results-empty">
+          <span class="results-empty-icon">◈</span>
+          <p>pick a card and we'll price it&hellip;</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span class="footer-brand">ShouldISlab</span>
+    <span class="footer-note">Estimates only — not financial advice. Comps move fast.</span>
+  </footer>
+
+  <script src="invest.js"></script>
+</body>
+</html>

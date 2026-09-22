@@ -5,6 +5,11 @@ const app = express();
 
 app.use(express.static(require('path').join(__dirname, '..')));
 
+// Clean URL for the pricing page — static already serves /invest.html, this just
+// avoids the extension.
+app.get('/invest', (req, res) =>
+    res.sendFile(require('path').join(__dirname, '..', 'invest.html')));
+
 // Number(x) || fallback can't represent a legitimate 0 — a user entering 0% fees got 13%.
 function numOr(value, fallback) {
     if (value === undefined || value === '') return fallback;
@@ -120,6 +125,28 @@ function calculateROI ({ rawValue, gradeValues, probabilities, gradingCost, feeP
     const recommendedMultiplier = rawValue < 100 ? 3 : 2.5;   // his rule: <$100 raw wants ~3x, >$100 wants ~2.5x
     const meetsRuleOfThumb = multiplier == null ? null : multiplier >= recommendedMultiplier;
 
+    // What not to pay, and what actually happens — see breakEvenPrices and
+    // outcomeDistribution above for why these are two separate numbers.
+    const { gradeBreakEven, maxBuy } = breakEvenPrices({
+        valueOnLadder, belowProb, gradingCost, feePct, netIfGrade,
+    });
+
+    // Two distributions because the outlay differs. Owning: you give up the raw
+    // sale. Buying: the whole purchase price is cash out of pocket, priced at the
+    // max buy figure so "at your break-even, here's your real risk" is answerable.
+    const ifOwned = outcomeDistribution({
+        gradeValues, probabilities, belowValue, belowProb, gradingCost, feePct,
+        outlay: netIfRaw,
+    });
+    // Always computed, even when maxBuy is 0. A max buy of zero is not missing
+    // data — it means grading costs more than the card can ever be worth, and the
+    // distribution at a purchase price of $0 is exactly how you show that: "even
+    // if someone gave you this card, you'd lose money grading it."
+    const ifBought = outcomeDistribution({
+        gradeValues, probabilities, belowValue, belowProb, gradingCost, feePct,
+        outlay: Math.max(0, maxBuy),
+    });
+
     let rawVsGradeOutcome = "No grade beats selling raw";
     const gradesAscending = Object.keys(gradeValues).map(Number).sort((a, b) => a - b);  // [7,8,9,10]
     for (const grade of gradesAscending) {
@@ -155,7 +182,8 @@ function calculateROI ({ rawValue, gradeValues, probabilities, gradingCost, feeP
         verdict = "Grade this card!";
     }
 
-    return { expectedGradedValue, netIfGrade, netIfRaw, expectedProfit, roi, verdict, rawVsGradeOutcome, multiplier, meetsRuleOfThumb, netByGrade, notLoseMoneyGrading };
+    return { expectedGradedValue, netIfGrade, netIfRaw, expectedProfit, roi, verdict, rawVsGradeOutcome, multiplier, meetsRuleOfThumb, netByGrade, notLoseMoneyGrading,
+             gradeBreakEven, maxBuy, ifOwned, ifBought };
 }
 
 // A small helper: gem rate → full probability distribution.
@@ -192,6 +220,103 @@ function gemRateToProbabilities(gemRate) {
 //
 // Half grades fold DOWN (8.5 counts as an 8) — conservative, worth less than the
 // grade above. Qualifiers and `auth` fall into the below-ladder remainder.
+// ===== break-even prices =====
+//
+// TWO different questions. On a 1999 Base Charizard they are $1,367 and $652 —
+// more than 2x apart. Shipping the wrong one on an investment page would tell
+// people to pay double what the card is worth buying at.
+//
+//   gradeBreakEven — "above what RAW MARKET PRICE does grading stop paying?"
+//     You already own it. Grading competes with selling it raw, so the raw price
+//     sits on both sides: it is what you'd get instead, AND what the card is
+//     worth if it grades badly. Solving:
+//
+//       (1-b)V(1-f) + bW(1-f) - C - W(1-f) = 0   ->   W = V - C/((1-f)(1-b))
+//
+//   maxBuy — "what is the most I should PAY for this card?"
+//     You're buying. The alternative is not buying at all, so the entire purchase
+//     price is out of pocket. Critically, what you PAY does not change what the
+//     card is WORTH if it grades a 5 — that is still the raw market comp. So the
+//     purchase price appears on one side only, and it collapses to:
+//
+//       R = E[graded](1-f) - C   =   netIfGrade
+//
+//     The most you should pay is exactly what you expect to net from grading it.
+//
+// Both verified against the engine: feeding either number back returns ~$0 profit
+// for its own question.
+function breakEvenPrices({ valueOnLadder: V, belowProb: b, gradingCost: C, feePct: f, netIfGrade }) {
+    const ladderShare = 1 - b;
+    if (!(ladderShare > 0) || f >= 1) return { gradeBreakEven: null, maxBuy: null };
+
+    const gradeBreakEven = V - C / ((1 - f) * ladderShare);
+
+    return {
+        gradeBreakEven: gradeBreakEven > 0 ? Math.round(gradeBreakEven) : 0,
+        maxBuy: netIfGrade > 0 ? Math.round(netIfGrade) : 0,
+    };
+}
+
+// ===== outcome distribution =====
+//
+// Expected profit is a MEAN over a violently skewed distribution. On Base
+// Charizard the mean is carried by a 0.5% shot at a PSA 10 while the most likely
+// single outcome is a card that grades 6 or below. Reporting only the mean is the
+// unweighted-upside claim §1 accuses the category of.
+//
+// Computed EXACTLY, not by Monte Carlo. The outcome space is five discrete
+// buckets, so simulation would only add sampling noise and make the number jitter
+// between page loads. Enumerate, sort by payoff, walk the cumulative probability.
+//
+// `outlay` is what the decision costs you, and it differs by question:
+//   owning  -> rawValue * (1 - fee)   the sale you're giving up
+//   buying  -> the purchase price     cash out of pocket
+function outcomeDistribution({ gradeValues, probabilities, belowValue, belowProb, gradingCost, feePct, outlay }) {
+    const net = (value) => value * (1 - feePct) - gradingCost - outlay;
+
+    // `gross` is the payout before any outlay is subtracted. Every outcome's net
+    // is LINEAR in what you pay — net = value(1-f) - C - P — so shipping gross
+    // once lets the /invest slider recompute the entire distribution at any price
+    // with a subtraction. No duplicated model on the client, no round-trip per pixel.
+    const gross = (value) => value * (1 - feePct) - gradingCost;
+
+    const outcomes = Object.keys(gradeValues)
+        .filter(g => gradeValues[g] > 0 && (probabilities[g] || 0) > 0)
+        .map(g => ({ label: `PSA ${g}`, prob: probabilities[g], gross: gross(gradeValues[g]), net: net(gradeValues[g]) }));
+
+    if (belowProb > 0) {
+        const floor = Math.min(...Object.keys(gradeValues).map(Number));
+        outcomes.push({ label: `PSA ${floor - 1} or below`, prob: belowProb, gross: gross(belowValue), net: net(belowValue) });
+    }
+
+    const total = outcomes.reduce((s, o) => s + o.prob, 0);
+    if (!(total > 0)) return null;
+    outcomes.forEach(o => { o.prob /= total; });          // guard against drift
+
+    const expected = outcomes.reduce((s, o) => s + o.prob * o.net, 0);
+    const lossProb = outcomes.filter(o => o.net < 0).reduce((s, o) => s + o.prob, 0);
+
+    // Median = the outcome holding the 50th percentile, walking worst to best.
+    const byPayoff = [...outcomes].sort((a, b) => a.net - b.net);
+    let cumulative = 0, median = byPayoff[byPayoff.length - 1];
+    for (const o of byPayoff) {
+        cumulative += o.prob;
+        if (cumulative >= 0.5) { median = o; break; }
+    }
+
+    return {
+        expected,
+        median: median.net,
+        medianLabel: median.label,
+        lossProb,
+        // "1 in N" reads better than a percentage for a long-shot risk, but only
+        // below 50% — at 75% it rounds to "1 in 1", which reads as certainty.
+        // Above that the UI should just say the percentage.
+        lossOdds: lossProb > 0 && lossProb < 0.5 ? Math.round(1 / lossProb) : null,
+        outcomes: byPayoff.reverse(),                     // best first, for display
+    };
+}
+
 // Wilson score interval for a proportion. The point of §4b: 42% across 1,000
 // submissions and 82% across 5 are not the same claim, and a bare percentage
 // cannot tell them apart.
