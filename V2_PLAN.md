@@ -154,7 +154,8 @@ Single-category plus population is the cheaper configuration; adding sports is r
 — they are private rates from an email thread, not published pricing.**
 
 CardHedge publishes no API pricing and exposes **no usage meter endpoint**, so per-call cost
-is not measurable — protocol point 5 stays unverified until they ship a meter. Budget the flat rate and ignore per-call economics.
+is not measurable — protocol point 5 stays unverified until they ship a meter. Budget the
+flat rate and ignore per-call economics.
 
 **The binding constraint is the rate limit, not the price. MEASURED: 10 requests per ~35s
 window**, answered with `Retry-After: 34` ([server.js:22](server/server.js#L22)). One verdict
