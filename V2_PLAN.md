@@ -387,14 +387,28 @@ connect the API → promote.**
 a meter, the funding is finite, and every week of building against eval keys is a week the
 meter isn't running. Do not start it before there is something worth pointing people at.
 
-**Two things to start in step 0, before any code.** Both are wall-clock delays that run in
-parallel with development and cannot be compressed later:
+**Step 0 — start the clocks, then make the product measurable.**
+
+Two are wall-clock delays that run in parallel with development and cannot be compressed:
 
 - **Send the provider email** (retention, `daily-price-export` pricing, eval-key terms,
   GemRate monetisation — §9).
 - **Register the Google Play developer account.** New personal accounts must run a closed
   test with **12 testers for 14 continuous days** before production access. Start the clock
   and line up the testers now. (Slice 9)
+
+Two are small code tasks, and they are why any of §12 can teach you anything:
+
+- **Add analytics.** There is none today — no gtag, no Plausible, nothing, on either page.
+  Returning-visitor data specifically, not pageviews. Free via self-hosted Umami or
+  GoatCounter. **Without a baseline now, slice 8's effect on retention is unmeasurable
+  forever**, because the fence index exists precisely to fix episodic usage.
+- **Add the eBay Partner Network link** to the max-buy flow on `/invest`. It is not in the
+  code despite this file's claims, it is the only revenue that works without return visits,
+  and it is the conversion event any paid channel would need. (§12 ladder, step 2)
+
+Note §12's launch trigger — "publish the audit post when `/invest` is live" — **has already
+fired.** `/invest` shipped in `c5f6765`. The post is gated on measurement now, not on code.
 
 Also in phase 1, because the app's wedge feature depends on it: **measure `comps-by-cert`.**
 It is SPEC-ONLY today and slice 9's cert scan assumes it works.
