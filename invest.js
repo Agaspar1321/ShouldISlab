@@ -1,18 +1,7 @@
-// ===== ShouldISlab — /invest : what should I pay? =====
-//
-// The verdict panel on the home page answers "don't pay over $X" and stops. This
-// page is where that becomes a decision you can actually move around.
-//
-// Everything the slider does is local arithmetic, no round-trips. That works
-// because every outcome's payoff is LINEAR in the purchase price:
-//
-//     net_i(P) = gross_i - P
-//
-// The server ships `gross` per outcome once (payout after fees and grading, before
-// any purchase price). Then any price is a subtraction. Two consequences worth
-// knowing: the whole distribution shifts rigidly, so the MEDIAN BUCKET never
-// changes as you drag — only its value does. And the gap between flipping raw and
-// grading is constant, because P cancels out of the comparison entirely.
+// ShouldISlab /invest: what should I pay?
+// the slider recalculates locally. Each outcome's payoff is linear in the purchase price
+// (net = gross - P), so the server sends gross once and any price is just a subtraction.
+// The median bucket never changes as you drag, only its value.
 
 const searchBtn  = document.getElementById('searchBtn');
 const cardSearch = document.getElementById('cardSearch');
@@ -98,16 +87,13 @@ async function selectCard(el) {
     if (!res.ok) throw new Error('server ' + res.status);
     const data = await res.json();
 
-    // Three outcomes, and they are NOT the same thing. Collapsing them into one
-    // "no data" message made a real answer look like a broken page.
+    // three different cases here, don't lump them into one "no data" message
     if (!data.result || !data.result.ifBought || !data.comps.raw.sampleSize) {
       deal.innerHTML = '<div class="results-empty"><p>Not enough recent sales on this card to price a deal.</p></div>';
       return;
     }
 
-    // maxBuy of 0 is an ANSWER: grading costs more than the card can ever be
-    // worth, so no purchase price makes it work. Show the arithmetic rather than
-    // pretending the data is missing.
+    // maxBuy of 0 is a real answer: grading costs more than the card can be worth
     if (!data.result.maxBuy) {
       const r = data.result;
       deal.innerHTML = `
@@ -163,8 +149,7 @@ function statsAt(P) {
   const expected = o.reduce((s, x) => s + x.prob * (x.gross - P), 0);
   const lossProb = o.filter(x => x.gross - P < 0).reduce((s, x) => s + x.prob, 0);
 
-  // The distribution shifts rigidly with P, so the median BUCKET is fixed — only
-  // its value moves. Walk worst-to-best to the 50th percentile once.
+  // the median bucket doesn't change with P, only its value
   const byPayoff = [...o].sort((a, b) => a.gross - b.gross);
   let cum = 0, medianBucket = byPayoff[byPayoff.length - 1];
   for (const x of byPayoff) { cum += x.prob; if (cum >= 0.5) { medianBucket = x; break; } }
@@ -255,13 +240,12 @@ function renderDeal(P) {
 
   const slider = document.getElementById('priceSlider');
   slider.addEventListener('input', () => {
-    // Re-render only the numbers, not the slider — re-rendering it mid-drag
-    // would drop the pointer capture and the thumb would stop following.
+    // only update the numbers, not the slider, or dragging breaks
     updateNumbers(Number(slider.value));
   });
 }
 
-// Live update on drag. Touches text only so the slider keeps focus and capture.
+// live update while dragging (text only, so the slider keeps focus)
 function updateNumbers(P) {
   const c = current;
   const s = statsAt(P);
@@ -298,7 +282,7 @@ function updateNumbers(P) {
   });
 }
 
-// Changing an assumption invalidates the numbers — re-pull rather than lie.
+// assumptions changed, so re-fetch
 ['gradingCost', 'feePct', 'condition'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     const sel = document.querySelector('.pick-card.is-selected');

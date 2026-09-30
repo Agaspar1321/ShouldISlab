@@ -5,28 +5,20 @@ const app = express();
 
 app.use(express.static(require('path').join(__dirname, '..')));
 
-// Clean URL for the pricing page — static already serves /invest.html, this just
-// avoids the extension.
+// /invest without the .html
 app.get('/invest', (req, res) =>
     res.sendFile(require('path').join(__dirname, '..', 'invest.html')));
 
-// Number(x) || fallback can't represent a legitimate 0 — a user entering 0% fees got 13%.
+// can't use `Number(x) || fallback` here since 0 is a valid value
 function numOr(value, fallback) {
     if (value === undefined || value === '') return fallback;
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
 }
 
-// ===== response cache =====
-//
-// MEASURED: CardHedge allows 10 requests per ~35s window and answers a 429 with
-// Retry-After: 34. One verdict costs up to 7 upstream calls (5 comps + GemRate +
-// an FMV gap-fill), so two lookups back to back hit the wall. This is what makes
-// the app usable, not an optimisation.
-//
-// In-memory and per-process only. Not a database and not a snapshot of any
-// category — entries expire, nothing is written to disk. CardHedge's published
-// terms are silent on retention; keep it to this until that's in writing.
+// response cache
+// CardHedge allows ~10 requests per 35s and one verdict can take up to 7 calls,
+// so without this the second search hits the rate limit. In-memory only, entries expire.
 const CACHE_TTL = {
     search: 10 * 60 * 1000,          // queries repeat while someone hunts for their card
     comps:  6 * 60 * 60 * 1000,      // card prices do not move minute to minute
@@ -42,24 +34,20 @@ async function withCache(kind, key, produce) {
         return hit.value;
     }
     const value = await produce();
-    // Don't cache a miss — a null population or an empty result should be retried
-    // next time rather than pinned for six hours.
+    // don't cache empty results
     if (value != null) {
         cache.set(k, { value, expires: Date.now() + CACHE_TTL[kind] });
     }
     return value;
 }
 
-// Sweep expired entries so a long-running dyno doesn't leak. unref() so this
-// timer never holds the process open.
+// clear out expired entries (unref so the timer doesn't keep node alive)
 setInterval(() => {
     const now = Date.now();
     for (const [k, v] of cache) if (v.expires <= now) cache.delete(k);
 }, 15 * 60 * 1000).unref();
 
-// Thrown when upstream rate-limits us. Waiting out a 34s Retry-After inside a
-// request leaves the browser on a dead spinner for half a minute — better to fail
-// fast and let the user retry when they choose.
+// thrown on a 429 so the request fails fast instead of waiting out Retry-After
 class RateLimited extends Error {
     constructor(retryAfterSec) {
         super('upstream rate limit');
@@ -68,27 +56,16 @@ class RateLimited extends Error {
 }
 
 function calculateROI ({ rawValue, gradeValues, probabilities, gradingCost, feePct, belowLadderValue }) {
-    // Two different kinds of "missing" get handled separately here, and conflating
-    // them is what made this overstate by 74%.
-    //
-    // 1. A grade with no comp price. We don't know what it's worth, so its odds
-    //    are redistributed across the grades we CAN price — never averaged in as
-    //    $0. This is the original renormalisation and it stays.
-    //
-    // 2. Odds that don't sum to 1 because the card can grade BELOW the bottom
-    //    rung. That mass is a real outcome, not a gap. Renormalising it away
-    //    asserts the card cannot grade under a 7 — on Base Charizard that
-    //    silently deletes 58.2% of what actually happens.
-    //
-    // `|| 0` is load-bearing: a grade with a price but no probability key sums
-    // `undefined`, and NaN propagates all the way to the verdict.
+    // grades with no price: spread their odds over the grades we can price.
+    // odds that don't add up to 1 = chance of grading below the ladder (handled below).
+    // `|| 0` keeps a missing probability from turning everything into NaN.
     const ladderGrades = Object.keys(gradeValues);
     const pricedGrades = ladderGrades.filter(grade => gradeValues[grade] > 0);
 
     const ladderProb = ladderGrades.reduce((sum, grade) => sum + (probabilities[grade] || 0), 0);
     const pricedProb = pricedGrades.reduce((sum, grade) => sum + (probabilities[grade] || 0), 0);
 
-    // What it's worth GIVEN it lands on a rung we can actually price.
+    // value if it lands on a grade we have a price for
     let valueOnLadder = 0;
     if (pricedProb > 0) {
         pricedGrades.forEach(grade => {
@@ -96,52 +73,38 @@ function calculateROI ({ rawValue, gradeValues, probabilities, gradingCost, feeP
         });
     }
 
-    // Everything below the bottom rung. Valued at the raw price by default: a
-    // badly graded card is worth roughly what an ungraded one is, and you've
-    // spent the grading fee to find out. Slightly conservative — a PSA 6 Base
-    // Charizard is $525 against $306 raw — which is the right direction for a
-    // number telling someone whether to spend $80.
+    // below the ladder: valued at the raw price, since a low grade is worth about the same as raw
     const belowProb = Math.max(0, 1 - ladderProb);
     const belowValue = Number.isFinite(belowLadderValue) ? belowLadderValue : rawValue;
 
-    // When probabilities already sum to 1 across the ladder (the manual /api/verdict
-    // path), belowProb is 0 and this reduces exactly to the old behaviour.
+    // manual /api/verdict odds already sum to 1, so belowProb is 0 there
     const expectedGradedValue = (1 - belowProb) * valueOnLadder + belowProb * belowValue;
 
     const netIfGrade = expectedGradedValue * (1 - feePct) - gradingCost;
     const netIfRaw = rawValue * (1 - feePct);
     const expectedProfit = netIfGrade - netIfRaw;
 
-    // gradingCost is user-supplied and may now legitimately be 0.
+    // gradingCost can be 0
     const roi = gradingCost > 0 ? expectedProfit / gradingCost : null;
 
-    // Both sides of this ratio can be missing. rawValue is 0 whenever an upstream call
-    // failed — unguarded that yields Infinity, meetsRuleOfThumb becomes true, and we
-    // confidently say "Grade it!". A missing PSA 10 comp is the mirror image: it would
-    // render as a flat 0.0x, which reads like data but means "no comps found".
+    // guard both sides: a 0 raw value or a missing PSA 10 comp shouldn't produce a ratio
     const hasRawPrice = rawValue > 0;
     const hasTopGrade = gradeValues[10] > 0;
     const multiplier = hasRawPrice && hasTopGrade ? gradeValues[10] / rawValue : null;
     const recommendedMultiplier = rawValue < 100 ? 3 : 2.5;   // his rule: <$100 raw wants ~3x, >$100 wants ~2.5x
     const meetsRuleOfThumb = multiplier == null ? null : multiplier >= recommendedMultiplier;
 
-    // What not to pay, and what actually happens — see breakEvenPrices and
-    // outcomeDistribution above for why these are two separate numbers.
+    // break-even prices and the outcome spread (see functions below)
     const { gradeBreakEven, maxBuy } = breakEvenPrices({
         valueOnLadder, belowProb, gradingCost, feePct, netIfGrade,
     });
 
-    // Two distributions because the outlay differs. Owning: you give up the raw
-    // sale. Buying: the whole purchase price is cash out of pocket, priced at the
-    // max buy figure so "at your break-even, here's your real risk" is answerable.
+    // owning and buying have different costs, so compute both
     const ifOwned = outcomeDistribution({
         gradeValues, probabilities, belowValue, belowProb, gradingCost, feePct,
         outlay: netIfRaw,
     });
-    // Always computed, even when maxBuy is 0. A max buy of zero is not missing
-    // data — it means grading costs more than the card can ever be worth, and the
-    // distribution at a purchase price of $0 is exactly how you show that: "even
-    // if someone gave you this card, you'd lose money grading it."
+    // still compute this when maxBuy is 0: it shows you'd lose money even if the card was free
     const ifBought = outcomeDistribution({
         gradeValues, probabilities, belowValue, belowProb, gradingCost, feePct,
         outlay: Math.max(0, maxBuy),
@@ -172,7 +135,7 @@ function calculateROI ({ rawValue, gradeValues, probabilities, gradingCost, feeP
     netByGrade[grade] = gradeValues[grade] * (1 - feePct) - gradingCost;
     }
 
-    // "No data" is a different answer from "don't grade" — don't collapse them.
+    // no data isn't the same as "don't grade"
     let verdict;
     if (!hasRawPrice) {
         verdict = "No raw sales found — can't compare against grading";
@@ -186,11 +149,9 @@ function calculateROI ({ rawValue, gradeValues, probabilities, gradingCost, feeP
              gradeBreakEven, maxBuy, ifOwned, ifBought };
 }
 
-// A small helper: gem rate → full probability distribution.
-// This is INVENTED — the 70/20/10 split is a guess, and a bad one. Measured
-// against 1999 Base Charizard's real pop report it claims 69.6% of non-10s land
-// at PSA 9; the true figure is 8.2%. Kept only for /api/verdict, where the user
-// hand-enters prices and there is no card to look a population up for.
+// fallback: turns a single gem rate into a rough 10/9/8/7 split. Only used by
+// /api/verdict, where there's no population data. The 70/20/10 split is a guess
+// and is way off for most cards.
 function gemRateToProbabilities(gemRate) {
   const remaining = 1 - gemRate;      // everything that's NOT a 10
   return {
@@ -202,49 +163,10 @@ function gemRateToProbabilities(gemRate) {
 
 }
 
-// Real outcome distribution, straight from submission counts.
-//
-// These are the TRUE odds and they deliberately SUM TO LESS THAN 1 — on Base
-// Charizard, 0.5% / 8.2% / 16.2% / 16.9%, totalling 41.8%. The missing 58.2% is
-// the chance of grading 6 or below, and calculateROI values it at the raw price
-// rather than renormalising it out of existence.
-//
-// Measured against a fully priced ten-rung ladder ($915 expected graded value):
-//
-//   renormalised over 7-10 only        $1,587   74% too high
-//   sub-7 folded into the PSA 7 rung   $1,094   20% too high
-//   true odds, remainder at raw          $842    8% LOW      <- we do this
-//
-// Erring low is the right direction for a number telling someone whether to
-// spend $80, and it needs no extra upstream calls.
-//
-// Half grades fold DOWN (8.5 counts as an 8) — conservative, worth less than the
-// grade above. Qualifiers and `auth` fall into the below-ladder remainder.
-// ===== break-even prices =====
-//
-// TWO different questions. On a 1999 Base Charizard they are $1,367 and $652 —
-// more than 2x apart. Shipping the wrong one on an investment page would tell
-// people to pay double what the card is worth buying at.
-//
-//   gradeBreakEven — "above what RAW MARKET PRICE does grading stop paying?"
-//     You already own it. Grading competes with selling it raw, so the raw price
-//     sits on both sides: it is what you'd get instead, AND what the card is
-//     worth if it grades badly. Solving:
-//
-//       (1-b)V(1-f) + bW(1-f) - C - W(1-f) = 0   ->   W = V - C/((1-f)(1-b))
-//
-//   maxBuy — "what is the most I should PAY for this card?"
-//     You're buying. The alternative is not buying at all, so the entire purchase
-//     price is out of pocket. Critically, what you PAY does not change what the
-//     card is WORTH if it grades a 5 — that is still the raw market comp. So the
-//     purchase price appears on one side only, and it collapses to:
-//
-//       R = E[graded](1-f) - C   =   netIfGrade
-//
-//     The most you should pay is exactly what you expect to net from grading it.
-//
-// Both verified against the engine: feeding either number back returns ~$0 profit
-// for its own question.
+// break-even prices
+// gradeBreakEven: raw price above which grading stops paying off (you own the card)
+//   W = V - C / ((1-f)(1-b))
+// maxBuy: the most to pay for a card you plan to grade = expected net from grading
 function breakEvenPrices({ valueOnLadder: V, belowProb: b, gradingCost: C, feePct: f, netIfGrade }) {
     const ladderShare = 1 - b;
     if (!(ladderShare > 0) || f >= 1) return { gradeBreakEven: null, maxBuy: null };
@@ -257,27 +179,14 @@ function breakEvenPrices({ valueOnLadder: V, belowProb: b, gradingCost: C, feePc
     };
 }
 
-// ===== outcome distribution =====
-//
-// Expected profit is a MEAN over a violently skewed distribution. On Base
-// Charizard the mean is carried by a 0.5% shot at a PSA 10 while the most likely
-// single outcome is a card that grades 6 or below. Reporting only the mean is the
-// unweighted-upside claim §1 accuses the category of.
-//
-// Computed EXACTLY, not by Monte Carlo. The outcome space is five discrete
-// buckets, so simulation would only add sampling noise and make the number jitter
-// between page loads. Enumerate, sort by payoff, walk the cumulative probability.
-//
-// `outlay` is what the decision costs you, and it differs by question:
-//   owning  -> rawValue * (1 - fee)   the sale you're giving up
-//   buying  -> the purchase price     cash out of pocket
+// outcome distribution
+// the expected value hides how skewed this is (a small shot at a 10 carries most of it),
+// so this lists every outcome and its odds. Computed exactly, no simulation.
+// outlay = what you give up: the raw sale if you own it, the purchase price if buying
 function outcomeDistribution({ gradeValues, probabilities, belowValue, belowProb, gradingCost, feePct, outlay }) {
     const net = (value) => value * (1 - feePct) - gradingCost - outlay;
 
-    // `gross` is the payout before any outlay is subtracted. Every outcome's net
-    // is LINEAR in what you pay — net = value(1-f) - C - P — so shipping gross
-    // once lets the /invest slider recompute the entire distribution at any price
-    // with a subtraction. No duplicated model on the client, no round-trip per pixel.
+    // keep gross so the /invest slider can recompute net at any price on the client
     const gross = (value) => value * (1 - feePct) - gradingCost;
 
     const outcomes = Object.keys(gradeValues)
@@ -296,7 +205,7 @@ function outcomeDistribution({ gradeValues, probabilities, belowValue, belowProb
     const expected = outcomes.reduce((s, o) => s + o.prob * o.net, 0);
     const lossProb = outcomes.filter(o => o.net < 0).reduce((s, o) => s + o.prob, 0);
 
-    // Median = the outcome holding the 50th percentile, walking worst to best.
+    // median outcome, walking worst to best
     const byPayoff = [...outcomes].sort((a, b) => a.net - b.net);
     let cumulative = 0, median = byPayoff[byPayoff.length - 1];
     for (const o of byPayoff) {
@@ -309,21 +218,14 @@ function outcomeDistribution({ gradeValues, probabilities, belowValue, belowProb
         median: median.net,
         medianLabel: median.label,
         lossProb,
-        // "1 in N" reads better than a percentage for a long-shot risk, but only
-        // below 50% — at 75% it rounds to "1 in 1", which reads as certainty.
-        // Above that the UI should just say the percentage.
+        // "1 in N" only reads right under 50%
         lossOdds: lossProb > 0 && lossProb < 0.5 ? Math.round(1 / lossProb) : null,
         outcomes: byPayoff.reverse(),                     // best first, for display
     };
 }
 
-// Wilson score interval for a proportion. The point of §4b: 42% across 1,000
-// submissions and 82% across 5 are not the same claim, and a bare percentage
-// cannot tell them apart.
-//
-// Wilson rather than the textbook normal approximation because gem rates live at
-// the extremes — 0.47% on Base Charizard, 86.5% on Chrome Ohtani — where the
-// normal interval produces negative lower bounds and other nonsense.
+// Wilson score interval for the gem rate. Better than the normal approximation
+// when rates are near 0% or 100%, and it shows how much a small sample can be trusted.
 function wilsonInterval(successes, total, z = 1.96) {
     if (!(total > 0) || !(successes >= 0)) return null;
     const p = successes / total;
@@ -337,19 +239,9 @@ function wilsonInterval(successes, total, z = 1.96) {
     };
 }
 
-// §4a — pop reports show the distribution of cards people CHOSE to submit, and
-// people submit their best copies. The measured rate is therefore an upper bound
-// on what a random copy off eBay will do.
-//
-// Model: `haircut` is the probability that a given card grades one notch worse
-// than the population implies. Mass shifts down a single rung — a would-be 10
-// becomes a 9, a 9 becomes an 8 — and whatever falls off the bottom joins the
-// below-ladder remainder. One parameter, one sentence to explain, no hidden
-// curve fitting.
-//
-// Default is ZERO. Every number in the table is measured; a non-zero default
-// would be an invented adjustment presented as data, which is the "silent fudge"
-// §4a explicitly warns against. The control is visible and the user decides.
+// pop reports skew high because people submit their best copies.
+// haircut = chance a card grades one step lower than the population suggests.
+// Defaults to 0 so the numbers shown are the measured ones unless the user changes it.
 function applyHaircut(probabilities, haircut) {
     if (!(haircut > 0)) return probabilities;
     const h = Math.min(1, haircut);
@@ -362,11 +254,12 @@ function applyHaircut(probabilities, haircut) {
         out[grade] = p * (1 - h) + carried;
         carried = p * h;
     }
-    // `carried` off the bottom rung is simply dropped — it lands in the
-    // below-ladder remainder, which calculateROI already values at raw.
+    // anything that falls off the bottom goes to the below-ladder bucket
     return out;
 }
 
+// real odds from submission counts. These don't sum to 1; the rest is the chance of
+// grading below a 7, which calculateROI values at the raw price. Half grades round down.
 function populationToProbabilities(pop) {
     const g = pop.grades || {};
     const h = pop.halves || {};
@@ -375,22 +268,18 @@ function populationToProbabilities(pop) {
 
     const n = (v) => (Number.isFinite(v) ? v : 0);
 
-    // Driven off PSA_GRADES so the ladder and the odds can never drift apart.
+    // uses PSA_GRADES so this always matches the ladder
     return Object.fromEntries(PSA_GRADES.map(grade => [
         grade,
         (n(g['g' + grade]) + n(h['g' + grade + '_5'])) / total,
     ]));
 }
-// The browser calls this as GET /api/search?q=... — this route stays GET.
-// It's the UPSTREAM call to CardHedge that must be POST; every /v1/cards/*
-// route there rejects GET with 405.
+// GET from the browser; the CardHedge call itself has to be POST
 app.get('/api/search', async (req, res) =>{
     let card = req.query.q;
     try{
-        // 90day-prices-by-grade-search rather than card-search: it returns the same
-        // cards PLUS gemrate_id, the join key GemRate's population lookup needs.
-        // `grade` is just the lens that makes it return rows — ignore the `price`
-        // it comes back with, real comps come from /v1/cards/comps.
+        // using this endpoint instead of card-search because it also returns gemrate_id,
+        // which the population lookup needs. Ignore the price it returns.
         const body = await withCache('search', card.trim().toLowerCase(), async () => {
             const response = await fetch(`https://api.cardhedger.com/v1/cards/90day-prices-by-grade-search`, {
                 method: 'POST',
@@ -415,36 +304,23 @@ app.get('/api/search', async (req, res) =>{
             return response.json();
         });
 
-        // Rows come back under `cards`, not `data`.
-        // `body.found` is the size of the CONTAINING SET, not the match count —
-        // Charizard, Pikachu and Blastoise all report 644 for Base Set. Ranking is
-        // correct, that number is not. Log only; never show it, never paginate on it.
+        // results are under `cards`. body.found is the set size, not the match count, so don't use it
         const found = body.cards || [];
         console.log('SEARCH:', card, '→', found.length, 'rows (set size', body.found + ')');
 
-        // The variant IS the point. Base / Shadowless / 1st Edition are different
-        // cards at $26.7k / $57.6k / $60k in PSA 10, and pooling them is exactly
-        // what made the old provider's numbers wrong. Suppressed when it's "Base"
-        // so ordinary cards don't all read "· Base" and drown out the signal.
-        // c.set already carries the year ("1999 Pokemon Base Set") — don't prepend it.
+        // show the variant (Shadowless, 1st Edition, etc.) since prices differ a lot; skip plain "Base".
+        // c.set already includes the year
         const label = (c) => [
             c.set,
             c.number ? `#${c.number}` : null,
             c.variant && c.variant !== 'Base' ? c.variant : null,
         ].filter(Boolean).join(' · ');
 
-        // Some rows come back as a card_id and a description with every other field
-        // null — incomplete catalog records. They render as a blank clickable card
-        // with a broken thumbnail, so drop them. Filter on `set`: it drives the
-        // label and is present on every usable row.
-        // Deliberately NOT filtering on gemrate_id — it is absent on a minority of
-        // legitimate cards, and dropping those would lose real results.
+        // drop incomplete rows (no set); they show up as blank cards.
+        // don't filter on gemrate_id, some real cards don't have one
         const usable = found.filter(c => c.card_id && c.set);
 
-        // Two rows can point at the same physical card (Ohtani #150 comes back as
-        // both "Base - Pitching" and "Base - Variation"). gemrate_id is what makes
-        // that visible. Keep the first — rows arrive relevance-ranked. Rows without
-        // a gemrate_id are passed through rather than collapsed into one bucket.
+        // dedupe cards that come back twice with the same gemrate_id; keep the first
         const seen = new Set();
         const deduped = usable.filter(c => {
             if (!c.gemrate_id) return true;
@@ -453,9 +329,7 @@ app.get('/api/search', async (req, res) =>{
             return true;
         });
 
-        // Keys on the LEFT are our contract with script.js (it reads id, title,
-        // card_set, image_url). Keys on the right are CardHedge's. They don't
-        // have to match, and renaming the left side silently breaks the picker.
+        // left side = what script.js expects, right side = CardHedge fields
         const cards = deduped.map(c => ({
             id: c.card_id,                  // what /v1/cards/comps wants next
             title: c.description,
@@ -463,7 +337,7 @@ app.get('/api/search', async (req, res) =>{
             card_number: c.number,
             variant: c.variant,
             gemrate_id: c.gemrate_id,       // Phase 3: GemRate population lookup
-            image_url: c.image,             // public CDN — no key, no proxy needed
+            image_url: c.image,             // public CDN, no key needed
         }));
         res.json(cards);
 
@@ -478,15 +352,8 @@ app.get('/api/search', async (req, res) =>{
 
 });
 
-// Reduce CardHedge sale records to the stats the engine and UI need.
-//
-// We take the median ourselves rather than using CardHedge's `comp_price`, which
-// is a MEAN after IQR filtering. Slice 0 deliberately moved this app off the mean
-// because a few high sales dragged it 65% high; taking their average would put
-// that bug straight back.
-//
-// `wantGrade` is a safety net, not a fix — measured 0 mismatches in 1500 records.
-// It costs nothing and fails closed.
+// turns CardHedge sales into the stats the app uses.
+// uses the median, not CardHedge's comp_price (a mean, which runs high)
 function statsFromRecords(records, wantGrade) {
     const rows = (records || [])
         .filter(r => Number.isFinite(r.price) && r.price > 0)
@@ -495,14 +362,10 @@ function statsFromRecords(records, wantGrade) {
     const prices = rows.map(r => r.price).sort((a, b) => a - b);
     const sampleSize = prices.length;
 
-    // Even-length: take the LOWER of the two middle values. Conservative on
-    // purpose — this number tells someone whether to spend $80.
+    // even count: take the lower middle value (conservative)
     const median = sampleSize > 0 ? Math.round(prices[Math.floor((sampleSize - 1) / 2)]) : 0;
 
-    // sale_type is Auction / Best Offer / BIN / Sale — ALL completed transactions.
-    // The old auction-vs-ask split existed because 74% of the previous provider's
-    // rows were asking prices that may never have sold. That hazard is gone; this
-    // is now just colour on how much came from open bidding.
+    // every sale type is a completed sale; this just tracks how many were auctions
     const auctionCount = rows.filter(r => r.sale_type === 'Auction').length;
     const dates = rows.map(r => r.sale_date).filter(Boolean).sort();
 
@@ -516,28 +379,13 @@ function statsFromRecords(records, wantGrade) {
 
 const PSA_GRADES = [10, 9, 8, 7];
 
-// An estimate is only allowed to fill a rung when it was extrapolated from at
-// least two real grades of the SAME card. Measured on every empty rung across a
-// 14-card sweep, this separates cleanly with no overlap:
-//
-//   support_grades 3  -> card_interpolation, confidence 0.39-0.43, grade B
-//   support_grades 1  -> anchor_multiplier,  confidence 0.07-0.10, grade D
-//
-// The D tier chains cross-provider off year-old anchors ("SGC 9.5 -> SGC 7
-// -77.8%, then SGC->PSA x0.79") and is not worth showing. Those rungs stay empty
-// and the thin-data warning covers them.
+// only use an estimate if it's based on at least 2 real grades of the same card.
+// the single-anchor ones are too unreliable to show
 const MIN_SUPPORT_GRADES = 2;
 
-// Fill empty rungs from CardHedge's FMV cascade — ONE batch call for all of them.
-//
-// This exists because leaving a rung empty is not neutral: calculateROI spreads
-// its odds across the grades that DO have prices, and the missing rung is almost
-// always the bottom one, so it gets valued like a blend of the grades above it.
-// Measured overstatement from that: 1.8x to 4.7x on five of six empty rungs.
-// An interpolated estimate is materially closer than the alternative.
-//
-// Empty rungs are rare and concentrated: 0 of 36 on cards selling 10+ per month,
-// 6 of 20 on cards selling 1-9. This is illiquid-card handling, nothing more.
+// fill grades with no sales using CardHedge's FMV estimates (one batch call).
+// an empty grade isn't neutral: calculateROI would value it like the grades above it,
+// which overstates things. Mostly happens on low-volume cards.
 async function fillMissingGrades(cardId, comps) {
     const missing = PSA_GRADES.filter(g => comps['psa' + g].sampleSize === 0);
     if (!missing.length) return [];
@@ -564,8 +412,7 @@ async function fillMissingGrades(cardId, comps) {
             if (!comps[key] || !Number.isFinite(item.price) || item.price <= 0) continue;
             if ((item.support_grades || 0) < MIN_SUPPORT_GRADES) continue;
 
-            // avg/median keep the frontend working, but sampleSize stays 0 — this
-            // is not a sale count and must never be rendered as "n sales".
+            // sampleSize stays 0 since these aren't real sales
             comps[key] = {
                 ...comps[key],
                 avg: Math.round(item.price),
@@ -579,8 +426,7 @@ async function fillMissingGrades(cardId, comps) {
                     method: item.method,
                     supportGrades: item.support_grades,
                     freshnessDays: item.freshness_days,
-                    // Their own plain-English derivation. Showing this is what makes
-                    // an estimate honest rather than a number pretending to be a comp.
+                    // CardHedge's explanation of how the estimate was made
                     explanation: item.price_explanation,
                 },
             };
@@ -593,19 +439,14 @@ async function fillMissingGrades(cardId, comps) {
     }
 }
 
-// CardHedge ids look like 1646615786118x244697357144328930 — not UUIDs.
+// CardHedge ids look like 1646615786118x244697357144328930, not UUIDs
 const CH_ID_RE = /^[0-9]+x[0-9]+$/;
 
-// GemRate ids are 40-char lowercase hex, same on both providers — CardHedge
-// hands us one per card, which is what makes this join a single call.
+// GemRate ids are 40-char hex; CardHedge gives us one per card
 const GR_ID_RE = /^[0-9a-f]{40}$/;
 
-// Real submission counts, replacing a number the user was guessing at.
-// Measured spread across ten cards: 0.47% (1999 Base Charizard) to 86.5%
-// (2018 Chrome Ohtani Pitching). The app's default was 30-50% for everything.
-//
-// Returns null on any failure — a missing gem rate must degrade to the user's
-// own input, never break the verdict.
+// real gem rate from GemRate population data.
+// returns null on failure so the app falls back to the user's own gem rate
 async function getPopulation(gemrateId) {
     if (!GR_ID_RE.test(gemrateId || '')) return null;
     try {
@@ -624,15 +465,9 @@ async function getPopulation(gemrateId) {
         const psa = (body.population_data || []).find(g => g.grader === 'psa');
         if (!psa || !psa.card_total_grades) return null;
 
-        // card_gem_rate is card_gems / card_total_grades — verified 0.470% against
-        // 487/103626 on Base Charizard. NOTE this is a different field from
-        // cert-lookup's `gem_rate`, which means "that grade OR HIGHER" and is not
-        // a 10-rate. Same-sounding name, different meaning.
-        //
-        // card_total_grades counts grades + halves + qualifiers (102412 + 1017 +
-        // 197 = 103626). Autographed submissions ARE included; non_auto_grades is
-        // available if that ever needs separating, but the denominator has to be
-        // swapped with it or the ratio is nonsense.
+        // card_gem_rate = card_gems / card_total_grades (checked against Base Charizard).
+        // not the same as cert-lookup's gem_rate, which means "this grade or higher".
+        // the total includes half grades, qualifiers and autos.
         const rate = Number(psa.card_gem_rate);
         if (!Number.isFinite(rate)) return null;
 
@@ -653,15 +488,14 @@ async function getPopulation(gemrateId) {
     }
 }
 
-// GET, not POST — script.js calls this with fetch('/api/comps?card_id=...').
-// Only the UPSTREAM call to CardHedge is a POST.
+// GET from the browser; the upstream CardHedge call is POST
 app.get('/api/comps', async (req, res) => {
     const cardId = req.query.card_id;
     const gemrateId = req.query.gemrate_id;
     const gradingCost = numOr(req.query.gradingCost, 80);
     const feePct      = numOr(req.query.feePct, 13) / 100;
     const userGemRate = numOr(req.query.gemRate, 30) / 100;
-    // §4a submission-bias adjustment. 0 = trust the population as measured.
+    // submission-bias haircut, 0 = none
     const haircut = Math.min(90, Math.max(0, numOr(req.query.haircut, 0))) / 100;
 
     if (!CH_ID_RE.test(cardId || '')) {
@@ -669,18 +503,12 @@ app.get('/api/comps', async (req, res) => {
     }
 
     try {
-        // One call per grade. `all-prices-by-card` would do the whole ladder in a
-        // single call, but it returns the LAST SALE, not an aggregate — on Base
-        // Charizard that is $26,700 against a 44-sale comp of $10,929 — and it
-        // carries no sample size, so there'd be no `n` to show. For a verdict this
-        // app stakes its credibility on, five calls is the right trade.
-        // Sequential on purpose: the burst limit is 10 requests per ~35s.
+        // one call per grade. all-prices-by-card is a single call but only returns the last
+        // sale and no sample size. Sequential because of the 10-per-35s limit.
         const startedAt = Date.now();
         const wanted = [['raw', 'Raw'], ...PSA_GRADES.map(g => ['psa' + g, `PSA ${g}`])];
 
-        // Cached as ONE unit including the gap-fill. A half-cached ladder would mix
-        // fresh and stale rungs, and the ladder is compared against itself — the
-        // whole verdict turns on the gaps between rungs, not their absolute values.
+        // cache the whole ladder together (including filled gaps) so grades aren't mixed fresh/stale
         const comps = await withCache('comps', cardId, async () => {
             const out = {};
             for (const [key, grade] of wanted) {
@@ -698,10 +526,7 @@ app.get('/api/comps', async (req, res) => {
                     }),
                 });
 
-                // 404 = no sales at this grade. That is a real answer, not a failure:
-                // ~11% of grade cells come back empty, all on illiquid cards. It must
-                // render as "no recent sales", never as $0 — and one empty rung must
-                // not kill the ladder.
+                // 404 = no sales at this grade. Show "no recent sales", not $0, and keep going
                 if (response.status === 404) {
                     out[key] = statsFromRecords([], grade);
                     continue;
@@ -717,32 +542,26 @@ app.get('/api/comps', async (req, res) => {
                 out[key] = statsFromRecords(body.raw_prices, grade);
             }
 
-            // Inside the cache: an empty rung is not neutral, calculateROI values it
-            // like a blend of the grades above it. Filling happens once per card.
+            // fill empty grades before caching
             await fillMissingGrades(cardId, out);
             return out;
         });
 
-        // Read back off the result rather than off the fill call, so this is right
-        // on a cache hit too.
+        // read from the result so it works on cache hits too
         const estimated = PSA_GRADES
             .filter(g => comps['psa' + g].estimated)
             .map(g => ({ grade: g, price: comps['psa' + g].median,
                          confidenceGrade: comps['psa' + g].estimate?.confidenceGrade }));
 
-        // Real submission counts if we can get them, the user's assumption if not.
-        // 12% of CardHedge rows carry no gemrate_id, so the fallback is a normal
-        // path, not an error case.
+        // use real population data when we have it, otherwise the user's gem rate
+        // (about 12% of cards don't have a gemrate_id)
         const population = await getPopulation(gemrateId);
 
-        // Real submission counts when we have them; the invented 70/20/10 split
-        // only when we don't. These are very different models — on Base Charizard
-        // the guess puts 69.6% of non-10s at PSA 9 against a measured 8.2%.
+        // real odds when we have them, the rough 70/20/10 split when we don't
         const measured = (population && populationToProbabilities(population))
             || gemRateToProbabilities(population ? population.gemRate : userGemRate);
 
-        // The haircut only makes sense against a real population. Applying it to
-        // a figure the user typed would be discounting their own guess back at them.
+        // only apply the haircut to real population data, not a rate the user typed
         const probabilities = population ? applyHaircut(measured, haircut) : measured;
         const gemRate = probabilities[10];
 
@@ -751,25 +570,20 @@ app.get('/api/comps', async (req, res) => {
             rawValue: comps.raw.median, gradeValues, probabilities, gradingCost, feePct,
         });
 
-        // Everything the UI needs to say WHERE the rate came from. Showing a gem
-        // rate without its sample size is the thing this whole migration exists to
-        // stop doing — 42% across 1,000 submissions and 82% across 5 are not the
-        // same claim.
+        // include the source and sample size so the UI can show where the gem rate came from
         const gemRateInfo = population
             ? {
-                rate: gemRate,                     // after any haircut — what the maths used
-                measuredRate: population.gemRate,  // before it — what the pop report says
+                rate: gemRate,                     // after any haircut
+                measuredRate: population.gemRate,  // straight from the pop report
                 haircut,
                 source: 'gemrate',
                 psa10Pop: population.psa10Pop,
                 totalPop: population.totalPop,
                 parallel: population.parallel,
                 asOf: population.asOf,
-                // 95% Wilson band on the measured rate. Narrow on 103,626
-                // submissions, wide on 12 — which is the entire point.
+                // 95% Wilson interval
                 interval: wilsonInterval(population.psa10Pop, population.totalPop),
-                // The odds of each outcome, so the UI can show the ladder it's
-                // actually betting on rather than just the headline 10-rate.
+                // odds for each grade so the UI can show the full ladder
                 probabilities,
               }
             : { rate: userGemRate, source: 'user', probabilities };
@@ -781,7 +595,7 @@ app.get('/api/comps', async (req, res) => {
             estimated.length ? `| est ${estimated.map(e => 'PSA' + e.grade + ':$' + e.price + e.confidenceGrade).join(' ')}` : '',
             `| ${Date.now() - startedAt}ms`);
 
-        // script.js reads data.result and data.comps — both are required.
+        // script.js needs both data.result and data.comps
         res.json({ result, comps, gemRate: gemRateInfo });
 
     } catch (error) {

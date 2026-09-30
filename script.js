@@ -1,4 +1,4 @@
-// ===== ShouldISlab — search + verdict wiring =====
+// ShouldISlab: search + verdict
 
 const searchBtn  = document.getElementById('searchBtn');
 const cardSearch = document.getElementById('cardSearch');
@@ -31,12 +31,10 @@ function assumptionsQS() {
   const num = (id) => parseFloat((document.getElementById(id).value || '').replace(/[^0-9.]/g, ''));
   const gradingCost = num('gradingCost') || 80;
   const feePct      = num('feePct')      || 13;
-  // gemRate is now only a fallback for cards with no population data.
+  // gemRate is only a fallback for cards with no population data
   const gemRate     = num('gemRate')     || 50;
-  // Condition IS the haircut. Pop reports measure cards people chose to submit,
-  // and they submit their best — so the only question that matters is how yours
-  // compares. That's information only the owner has, which is why we ask rather
-  // than derive it.
+  // condition = the haircut. Pop reports skew toward people's best copies,
+  // so we ask how this card compares instead of guessing
   const condEl      = document.getElementById('condition');
   const haircut     = condEl ? (parseFloat(condEl.value) || 0) : 0;
   return `gradingCost=${gradingCost}&feePct=${feePct}&gemRate=${gemRate}&haircut=${haircut}`;
@@ -49,9 +47,7 @@ async function runSearch() {
   pickList.innerHTML = '<p class="pick-status">Searching…</p>';
   try {
     const res = await fetch('/api/search?q=' + encodeURIComponent(query));
-    // 429 is the upstream burst limit, not a failure. "Try again in N seconds" is
-    // honest and actionable; "search failed" would push people to the manual form
-    // for no reason.
+    // 429 means the upstream rate limit, so show a retry countdown instead of an error
     if (res.status === 429) {
       const { retryAfter } = await res.json().catch(() => ({}));
       pickList.innerHTML = `<p class="pick-status">Busy right now — try again in about ${retryAfter || 35} seconds.</p>`;
@@ -81,21 +77,15 @@ async function runSearch() {
 }
 
 // ---------- condition diagrams ----------
-// Drawn, not photographed. Card art is licensed IP and any photo of a card
-// carries both the publisher's copyright and the photographer's — so eBay grabs
-// and PSA's archive images are out. Diagrams also read better at this size:
-// edge whitening and surface scratches need macro photography and raking light
-// to register in a photo, and turn to mush at 400px.
-//
-// 5:7 viewBox matches a real card. Colours come from CSS vars so it themes.
-//
-// centre  — how far the art window is pushed off true (0 = dead centre)
-// round   — corner radius on the art window; higher reads as a softened corner
-// white   — edge whitening speckles
-// scratch — a surface line catching the light
+// drawn instead of photos (no copyright issues, and flaws show up better at this size).
+// 5:7 viewBox like a real card; colors come from CSS vars.
+// centre: how far the art is off-center (0 = centered)
+// round: corner radius on the art window
+// white: edge whitening
+// scratch: a surface scratch
 function conditionDiagram({ centre = 0, round = 1, white = 0, scratch = false, marks = [] }) {
   const W = 200, H = 280, border = 22;
-  // Push the art window off-centre; the border width difference is the tell.
+  // shift the art window off-center
   const x = border + centre, y = border + centre * 0.6;
   const w = W - border * 2, h = H - border * 2;
 
@@ -107,8 +97,7 @@ function conditionDiagram({ centre = 0, round = 1, white = 0, scratch = false, m
       }).join('')
     : '';
 
-  // Ring on the flaw, label in the margin OUTSIDE the card with a leader line —
-  // labels sitting on top of the artwork were unreadable and clipped at the edges.
+  // ring on the flaw with the label outside the card so it doesn't cover the art
   const callouts = marks.map(m => {
     const r = m.r || 15;
     const above = m.y < H / 2;
@@ -123,8 +112,7 @@ function conditionDiagram({ centre = 0, round = 1, white = 0, scratch = false, m
           font-size="13" font-weight="700" fill="var(--red-deep)">${m.label}</text>`;
   }).join('');
 
-  // Padded viewBox so callout labels and leader lines have margin to live in
-  // rather than being clipped against the card edge.
+  // padded viewBox so labels aren't clipped at the card edge
   return `
   <svg class="cond-svg" viewBox="-18 -26 ${W + 36} ${H + 62}" role="img" aria-label="Condition example">
     <rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="7"
@@ -142,8 +130,7 @@ function conditionDiagram({ centre = 0, round = 1, white = 0, scratch = false, m
 }
 
 // ---------- condition examples ----------
-// What a grader is actually looking at, in the order they look at it. The odds
-// shift is ours, not measured — see V2_PLAN §4a. Said plainly in `effect`.
+// what a grader checks, in order. The odds shift here is my estimate, not measured.
 const CONDITIONS = [
   {
     value: '0',
@@ -228,7 +215,7 @@ const CONDITIONS = [
   };
 
   const open = () => {
-    // Land on whatever they've already picked rather than always at the start.
+    // start on whatever they already picked
     const found = CONDITIONS.findIndex(c => c.value === select.value);
     i = found >= 0 ? found : 0;
     render();
@@ -243,7 +230,7 @@ const CONDITIONS = [
     select.value = CONDITIONS[i].value;
     dlg.close();
   });
-  // Click the backdrop to dismiss.
+  // click the backdrop to close
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 })();
 
@@ -261,8 +248,7 @@ async function selectCard(el) {
   results.innerHTML = '<div class="results-empty"><p>Pulling recent sales…</p></div>';
   showVerdict();
   try {
-    // gemrate_id is what unlocks the real submission-count gem rate. It's absent
-    // on some cards, and the server falls back to the user's own figure then.
+    // gemrate_id gets the real gem rate; without it the server uses the user's number
     const res  = await fetch('/api/comps?card_id=' + encodeURIComponent(el.dataset.cardId)
       + '&gemrate_id=' + encodeURIComponent(el.dataset.gemrateId || '')
       + '&' + assumptionsQS());
@@ -284,7 +270,7 @@ async function selectCard(el) {
 // ---------- manual fallback ----------
 const manualBtn = document.getElementById('btn-Submit');
 manualBtn.addEventListener('click', async () => {
-  // blank grades are allowed — treated as 0 and ignored, same as a null lookup grade
+  // blank grades are allowed (treated as 0 and ignored)
   const num = (id) => {
     const v = parseFloat((document.getElementById(id).value || '').replace(/[^0-9.]/g, ''));
     return Number.isNaN(v) ? 0 : v;
@@ -315,20 +301,16 @@ manualBtn.addEventListener('click', async () => {
 // ---------- render a verdict ----------
 function renderResult(result, comps, cardMeta, gemRate) {
   const good  = result.expectedProfit > 10;
-  // Thousands separators everywhere. A PSA 10 Jordan comes back at 232173 and
-  // reading that as $232,173 rather than $232173 is the difference between a
-  // number and a smear.
+  // thousands separators
   const group = (n, dp) => Number(n).toLocaleString('en-US', {
     minimumFractionDigits: dp, maximumFractionDigits: dp,
   });
   const money = (n) => (n < 0 ? `-$${group(Math.abs(n), 2)}` : `$${group(n, 2)}`);
-  // Comp medians are already whole dollars — decimals on them are noise.
+  // comp medians are whole dollars already
   const price = (n) => `$${group(n, 0)}`;
   const pct   = (n) => (n * 100).toFixed(n < 0.01 ? 2 : 1) + '%';
 
-  // How many sales a price needs before we treat it as a market price rather than
-  // an anecdote. Below this we still SHOW the number — hiding data the user could
-  // interpret is worse — but we say plainly that it's thin.
+  // sales needed before a price counts as a real market price. Below this we still show it, but flag it as thin
   const LOW_SAMPLE = 5;
   const salesCount = (c) => (c ? (c.sampleSize != null ? c.sampleSize : c.count) : null);
   const isThin = (c) => {
@@ -345,8 +327,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
     const n = salesCount(c);
     const thin = isThin(c);
 
-    // An estimate is not a sale count and must never render like one. It carries
-    // its own derivation, which we put in the tooltip rather than hide.
+    // estimates aren't sales, so don't show a sale count; the explanation goes in the tooltip
     let priceLine, flag = '';
     if (!hasPrice) {
       priceLine = 'no recent sales';
@@ -361,8 +342,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
       priceLine = price(c.avg);
     }
 
-    // The odds of landing on this rung — the number that decides the verdict, and
-    // the one the old model was inventing.
+    // odds of landing on this grade
     const chance = odds && odds[grade] != null
       ? `<span class="grade-odds">${pct(odds[grade])}</span>` : '';
 
@@ -375,9 +355,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
       </div>`;
   };
 
-  // Everything below the bottom rung. Real outcomes, not a rounding gap — on a
-  // 1999 Base Charizard this is 58% of submissions, and burying it is how the
-  // rest of the category ends up quoting numbers that can't happen.
+  // chance of grading below the ladder (58% on a 1999 Base Charizard)
   const ladderProb = odds ? [10, 9, 8, 7].reduce((s, g) => s + (odds[g] || 0), 0) : null;
   const belowRow = ladderProb != null && ladderProb < 0.999
     ? `<div class="grade-row grade-row--below">
@@ -388,20 +366,15 @@ function renderResult(result, comps, cardMeta, gemRate) {
        </div>`
     : '';
 
-  // Where the gem rate came from. A percentage without its sample size is the
-  // thing this whole build exists to stop shipping: 42% across 1,000 submissions
-  // and 82% across 5 are not the same claim.
+  // where the gem rate came from, with sample size
   let gemBlock = '';
   if (gemRate && gemRate.source === 'gemrate') {
-    // The 95% band is the honesty signal. 0.43–0.51% off 103,626 submissions is a
-    // measurement; 8.9–53.2% off 12 is a shrug. The old UI rendered both as a
-    // single confident percentage.
+    // 95% interval, so a rate from 12 submissions doesn't look as solid as one from 100k
     const iv = gemRate.interval;
     const band = iv
       ? `<span class="gem-band">95% confident: ${pct(iv.low)} – ${pct(iv.high)}</span>` : '';
 
-    // If a haircut is applied, show what was measured and what we used. Never let
-    // an adjusted number masquerade as the population's own figure.
+    // if a haircut is applied, show both the measured rate and the one we used
     const cut = gemRate.haircut > 0
       ? `<span class="gem-cut">${pct(gemRate.measuredRate)} measured, cut ${Math.round(gemRate.haircut * 100)}% for submission bias</span>` : '';
 
@@ -421,12 +394,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
       </div>`;
   }
 
-  // What not to pay, and what actually happens if you do.
-  //
-  // A break-even alone is a promise, and promising upside is what the rest of the
-  // category already does. The distribution is the honest half: on Base Charizard
-  // the expected value is carried by a 0.5% shot at a 10 while the typical outcome
-  // is a card that grades 6 or below. Both numbers, or neither.
+  // break-even price plus the spread of outcomes (the average alone hides how often you lose)
   let buyBlock = '';
   if (result.maxBuy > 0 && result.ifBought) {
     const d = result.ifBought;
@@ -453,7 +421,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
       </div>`;
   }
 
-  // One plain-English caveat covering everything the verdict leaned on.
+  // one caveat covering the assumptions behind the verdict
   const thinSources = [];
   if (comps && isThin(comps.raw)) thinSources.push('raw');
   [10, 9, 8, 7].forEach(g => {
