@@ -176,6 +176,17 @@ strong { font-weight: 700; }
 }
 .hero-stats strong { color: var(--ink); }
 
+/* printed masthead rule: heavy line over a hairline */
+.hero::after {
+  content: "";
+  display: block;
+  height: 3px;
+  margin-top: 1.75rem;
+  border-top: 3px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  box-sizing: content-box;
+}
+
 /* ---------- App + panels ---------- */
 .app {
   max-width: 900px;
