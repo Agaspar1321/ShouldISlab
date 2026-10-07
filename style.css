@@ -676,11 +676,6 @@ select {
 .slider-ends { display: flex; justify-content: space-between; margin-top: 0.35rem; font-size: var(--fs-xs); color: var(--muted); }
 
 /* flip vs grade — the better row is marked, because "which one" is the question */
-.strategy h3 { /* uses .cb-title look */
-  margin: 1.75rem 0 0.5rem; padding-bottom: 0.35rem;
-  font-family: var(--display); font-weight: 400; font-size: var(--fs-lg);
-  letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 3px solid var(--ink);
-}
 .strategy-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -707,7 +702,6 @@ select {
 }
 .strategy-note { margin-top: 0.75rem; font-size: var(--fs-sm); line-height: 1.55; color: var(--muted); }
 .strategy-note strong { color: var(--ink); }
-.app--invest .buy-outcomes { margin-top: 1.5rem; }
 .app--invest .gem-src { display: block; margin-top: 0.75rem; }
 
 @media (max-width: 480px) {

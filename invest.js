@@ -113,7 +113,9 @@ async function selectCard(el) {
           <strong>${money(r.netIfGrade)}</strong> — a loss before you have paid a cent for the card.
           Even free, it loses money.
         </p>
+        <h3 class="cb-title">If you got it free</h3>
         <div class="buy-outcomes">
+          <div class="buy-head"><span>If it comes back</span><span>Odds</span><span>You net</span></div>
           ${[...r.ifBought.outcomes].sort((a, b) => b.gross - a.gross).map(o => `
             <div class="buy-row">
               <span class="buy-grade">${escapeHtml(o.label)}</span>
@@ -207,7 +209,7 @@ function renderDeal(P) {
       <strong>${money(s.median)}</strong> (${escapeHtml(s.medianLabel)}), with ${risk}.</p>
 
     <div class="strategy">
-      <h3>Flip it raw, or grade it?</h3>
+      <h3 class="cb-title">Flip it raw, or grade it?</h3>
       <div class="strategy-row ${flipNet > gradeNet ? 'is-better' : ''}">
         <span class="strategy-name">Flip raw</span>
         <span class="strategy-sub">sell at ${price(c.rawComp)} less fees</span>
@@ -225,7 +227,9 @@ function renderDeal(P) {
       </p>
     </div>
 
+    <h3 class="cb-title">Every outcome at your price</h3>
     <div class="buy-outcomes">
+      <div class="buy-head"><span>If it comes back</span><span>Odds</span><span>You net</span></div>
       ${[...c.outcomes].sort((a, b) => b.gross - a.gross).map(o => `
         <div class="buy-row">
           <span class="buy-grade">${escapeHtml(o.label)}</span>
