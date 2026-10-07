@@ -21,7 +21,7 @@ function backToSearch() {
   const app = document.querySelector('.app');
   app.classList.remove('viewing-verdict');
   results.className = '';
-  results.innerHTML = '<div class="results-empty"><span class="results-empty-icon">◈</span><p>search a card and let\'s see if it\'s worth it…</p></div>';
+  results.innerHTML = '<div class="results-empty"><p>search a card and let\'s see if it\'s worth it…</p></div>';
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
   cardSearch.focus();
 }
@@ -336,34 +336,34 @@ function renderResult(result, comps, cardMeta, gemRate) {
       const why = c.estimate && c.estimate.explanation ? escapeHtml(c.estimate.explanation) : '';
       flag = ` <span class="est-flag" title="${why}">estimated</span>`;
     } else if (n != null) {
-      priceLine = `${price(c.avg)} · ${n} sale${n === 1 ? '' : 's'}`;
+      priceLine = `${price(c.avg)}<span class="grade-n">${n} sale${n === 1 ? '' : 's'}</span>`;
       flag = thin ? ' <span class="thin-flag">thin</span>' : '';
     } else {
       priceLine = price(c.avg);
     }
 
     // odds of landing on this grade
-    const chance = odds && odds[grade] != null
-      ? `<span class="grade-odds">${pct(odds[grade])}</span>` : '';
+    const chance = odds
+      ? `<td class="grade-odds">${odds[grade] != null ? pct(odds[grade]) : '—'}</td>` : '';
 
     return `
-      <div class="grade-row ${hasPrice ? '' : 'grade-row--empty'} ${thin ? 'grade-row--thin' : ''}">
-        <span class="grade-tag">PSA ${grade}</span>
+      <tr class="grade-row ${hasPrice ? '' : 'grade-row--empty'} ${thin ? 'grade-row--thin' : ''}">
+        <th scope="row" class="grade-tag">PSA ${grade}</th>
         ${chance}
-        <span class="grade-comp">${priceLine}${flag}</span>
-        <span class="grade-net ${net < 0 ? 'neg' : 'pos'}">${hasPrice ? money(net) : '—'}</span>
-      </div>`;
+        <td class="grade-comp">${priceLine}${flag}</td>
+        <td class="grade-net ${hasPrice ? (net < 0 ? 'neg' : 'pos') : ''}">${hasPrice ? money(net) : '—'}</td>
+      </tr>`;
   };
 
   // chance of grading below the ladder (58% on a 1999 Base Charizard)
   const ladderProb = odds ? [10, 9, 8, 7].reduce((s, g) => s + (odds[g] || 0), 0) : null;
   const belowRow = ladderProb != null && ladderProb < 0.999
-    ? `<div class="grade-row grade-row--below">
-         <span class="grade-tag">PSA 6↓</span>
-         <span class="grade-odds">${pct(1 - ladderProb)}</span>
-         <span class="grade-comp">valued at raw</span>
-         <span class="grade-net">—</span>
-       </div>`
+    ? `<tr class="grade-row grade-row--below">
+         <th scope="row" class="grade-tag">PSA 6↓</th>
+         <td class="grade-odds">${pct(1 - ladderProb)}</td>
+         <td class="grade-comp">valued at raw</td>
+         <td class="grade-net">—</td>
+       </tr>`
     : '';
 
   // where the gem rate came from, with sample size
@@ -402,8 +402,9 @@ function renderResult(result, comps, cardMeta, gemRate) {
       ? `about <strong>1 in ${d.lossOdds}</strong> chance you lose money`
       : `a <strong>${pct(d.lossProb)}</strong> chance you lose money`;
     buyBlock = `
-      <div class="buy-block">
-        <span class="buy-label">Buying it to grade? Don't pay over</span>
+      <section class="buy-block">
+        <h3 class="cb-title">Buying it raw to grade?</h3>
+        <span class="buy-label">Don't pay over</span>
         <span class="buy-price">${money(result.maxBuy)}</span>
         <p class="buy-risk">
           That's the break-even — at it you make nothing on average. Pay it and
@@ -411,6 +412,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
           with ${risk}.
         </p>
         <div class="buy-outcomes">
+          <div class="buy-head"><span>If it comes back</span><span>Odds</span><span>You net</span></div>
           ${d.outcomes.map(o => `
             <div class="buy-row">
               <span class="buy-grade">${escapeHtml(o.label)}</span>
@@ -418,7 +420,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
               <span class="buy-net ${o.net < 0 ? 'neg' : 'pos'}">${money(o.net)}</span>
             </div>`).join('')}
         </div>
-      </div>`;
+      </section>`;
   }
 
   // one caveat covering the assumptions behind the verdict
@@ -456,11 +458,12 @@ function renderResult(result, comps, cardMeta, gemRate) {
         <span class="verdict-tag">${good ? 'Grade it' : 'Skip it'}</span>
         <p class="verdict-msg">${escapeHtml(result.verdict)}</p>
         ${rawLine}
-        ${gemBlock}
-        ${thinNote}
       </div>
     </div>
 
+    ${thinNote}
+
+    <h3 class="cb-title">The numbers</h3>
     <div class="stat-grid">
       <div class="stat stat--hero ${good ? 'pos' : 'neg'}">
         <span class="stat-label">Expected profit</span>
@@ -484,14 +487,25 @@ function renderResult(result, comps, cardMeta, gemRate) {
       </div>
     </div>
 
-    <div class="ladder">
-      <h3>Net by grade</h3>
-      ${gradeRow(10)}
-      ${gradeRow(9)}
-      ${gradeRow(8)}
-      ${gradeRow(7)}
-      ${belowRow}
-    </div>
+    <section class="ladder">
+      <h3 class="cb-title">Net by grade</h3>
+      <table class="cb-table">
+        <thead><tr>
+          <th scope="col">Grade</th>
+          ${odds ? '<th scope="col">Odds</th>' : ''}
+          <th scope="col">Sold for</th>
+          <th scope="col">You net</th>
+        </tr></thead>
+        <tbody>
+          ${gradeRow(10)}
+          ${gradeRow(9)}
+          ${gradeRow(8)}
+          ${gradeRow(7)}
+          ${belowRow}
+        </tbody>
+      </table>
+      ${gemBlock}
+    </section>
 
     ${buyBlock}
   `;
