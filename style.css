@@ -44,6 +44,9 @@
   --fs-xl: 1.75rem;
   --fs-2xl: 2.5rem;
 
+  /* layout: header, hero, panels and footer all share one edge */
+  --page: 900px;
+
   /* shape */
   --r: 6px;                  /* cards have small corners, not pills */
   --r-lg: 10px;
@@ -108,7 +111,7 @@ strong { font-weight: 700; }
   gap: 1rem;
   flex-wrap: wrap;   /* logo + nav is ~365px; wrap rather than scroll at 375 */
   row-gap: 0.5rem;
-  max-width: 900px;
+  max-width: var(--page);
   margin: 0 auto;
   padding: 1rem 1rem 0;
 }
@@ -136,7 +139,7 @@ strong { font-weight: 700; }
 
 /* ---------- Hero ---------- */
 .hero {
-  max-width: 900px;
+  max-width: var(--page);
   margin: 2.5rem auto 0;
   padding: 0 1rem;
 }
@@ -191,7 +194,7 @@ strong { font-weight: 700; }
 
 /* ---------- App + panels ---------- */
 .app {
-  max-width: 900px;
+  max-width: var(--page);
   margin: 2rem auto 3rem;
   padding: 0 1rem;
 }
@@ -304,7 +307,7 @@ select {
 }
 .pick-status {
   grid-column: 1 / -1;
-  padding: 1.5rem 0.5rem;
+  padding: 1rem 0.5rem;
   text-align: center;
   font-size: var(--fs-sm);
   color: var(--faint);
@@ -338,7 +341,8 @@ select {
 /* ---------- Assumptions ---------- */
 .assumptions { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
 .assumptions-label { display: block; margin-bottom: 0.75rem; }
-.assumptions-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 0.75rem; }
+.assumptions-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 0.75rem; align-items: end; }
+.assumptions-row label { white-space: nowrap; }
 .field-hint { margin-top: 0.75rem; font-size: var(--fs-sm); color: var(--muted); }
 
 .help-dot {
@@ -477,7 +481,7 @@ select {
 
 /* ---------- Footer ---------- */
 .site-footer {
-  max-width: 900px;
+  max-width: var(--page);
   margin: 0 auto;
   padding: 1.5rem 1rem 3rem;
   display: flex;
@@ -644,12 +648,16 @@ select {
 
 /* ---------- /invest page ---------- */
 /* two columns: search on the left, the deal stays in view on the right */
-.app--invest { max-width: 1040px; }
+/* two panels need more room, so the whole /invest page widens together */
+.page--wide { --page: 1080px; }
 @media (min-width: 860px) {
   .app--invest { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 1.5rem; align-items: start; }
   .app--invest .panel--results { position: sticky; top: 1rem; }
 }
 .app--invest .panel--results { display: block; }
+/* the search panel is narrow here: two fees side by side, condition below */
+.app--invest .assumptions-row { grid-template-columns: 1fr 1fr; }
+.app--invest .assumptions-row .field:last-child { grid-column: 1 / -1; }
 
 .deal-head { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.25rem; }
 .deal-head .buy-label { margin-top: 0.5rem; }
