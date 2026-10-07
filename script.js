@@ -443,32 +443,37 @@ function renderResult(result, comps, cardMeta, gemRate) {
     : '';
 
   const cardImg = cardMeta && cardMeta.image
-    ? `<img class="verdict-card-img" src="${escapeHtml(cardMeta.image)}" alt="">` : '';
-  const cardName = cardMeta && cardMeta.title
-    ? `<p class="verdict-card-name">${escapeHtml(cardMeta.title)}</p>` : '';
+    ? `<div class="slab-window"><img class="verdict-card-img" src="${escapeHtml(cardMeta.image)}" alt=""></div>` : '';
+  const cardName = `<p class="verdict-card-name">${cardMeta && cardMeta.title ? escapeHtml(cardMeta.title) : 'Your card'}</p>`;
+  // the big word on the label already says grade/skip, so only show the
+  // server's sentence when it says something else (e.g. no raw sales)
+  const plainVerdict = /^(Grade this card!|Don't Grade this card)$/.test(result.verdict);
+  const verdictMsg = plainVerdict ? '' : `<p class="verdict-msg">${escapeHtml(result.verdict)}</p>`;
   const rawLine = comps && comps.raw && comps.raw.avg > 0
     ? `<span class="verdict-raw">Raw: ${price(comps.raw.avg)}${comps.raw.count != null ? ' · ' + comps.raw.count + ' sales' : ''}</span>` : '';
 
   results.className = good ? 'is-good' : 'is-bad';
   results.innerHTML = `
-    <div class="verdict-head">
-      ${cardImg}
-      <div class="verdict-head-text">
-        ${cardName}
-        <span class="verdict-tag">${good ? 'Grade it' : 'Skip it'}</span>
-        <p class="verdict-msg">${escapeHtml(result.verdict)}</p>
-        ${rawLine}
+    <div class="slab">
+      <div class="slab-label">
+        <div class="slab-id">
+          ${cardName}
+          ${verdictMsg}
+          ${rawLine}
+        </div>
+        <div class="slab-grade">
+          <span class="verdict-tag">${good ? 'Grade it' : 'Skip it'}</span>
+          <span class="slab-profit">${money(result.expectedProfit)}</span>
+          <span class="slab-profit-label">expected profit</span>
+        </div>
       </div>
+      ${cardImg}
     </div>
 
     ${thinNote}
 
     <h3 class="cb-title">The numbers</h3>
     <div class="stat-grid">
-      <div class="stat stat--hero ${good ? 'pos' : 'neg'}">
-        <span class="stat-label">Expected profit</span>
-        <span class="stat-value">${money(result.expectedProfit)}</span>
-      </div>
       <div class="stat">
         <span class="stat-label">Min grade to cover grading &amp; fees</span>
         <span class="stat-value">${result.notLoseMoneyGrading === 'No grade gets your money back' ? 'None' : 'PSA ' + result.notLoseMoneyGrading}</span>
