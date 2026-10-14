@@ -30,17 +30,46 @@
     <nav class="topnav">
       <a href="/" aria-current="page">Calculator</a>
       <a href="/invest">What to pay</a>
+      <a href="#how">How it works</a>
     </nav>
   </header>
 
   <section class="hero">
-    <p class="eyebrow">a card grading calculator</p>
-    <h1>Know before you <span>slab&nbsp;it.</span></h1>
-    <p class="lede">
-      Most grading calculators show what you'd make if the card comes back a 10. This one weighs every grade by how often it <strong>actually happens</strong>, using real PSA submission counts, then takes off grading and selling fees. You get your expected profit, the grade you need to break even, and a straight answer when the smart move is not to grade.
-    </p>
+    <div class="hero-split">
+      <div class="hero-copy">
+        <p class="eyebrow">a card grading calculator</p>
+        <h1>Know before you <span>slab&nbsp;it.</span></h1>
+        <p class="lede">
+          Most grading calculators show what you'd make if the card comes back a 10. This one weighs every grade by how often it <strong>actually happens</strong>, using real PSA submission counts, then takes off grading and selling fees. You get your expected profit, the grade you need to break even, and a straight answer when the smart move is not to grade.
+        </p>
+        <a class="hero-cta" href="#calc">Search a card</a>
+      </div>
+
+      <!-- decorative: an empty slab waiting for a verdict -->
+      <div class="hero-art" aria-hidden="true">
+        <div class="slab slab--demo">
+          <div class="slab-label">
+            <div class="slab-id">
+              <p class="verdict-card-name">Your card here</p>
+              <span class="verdict-raw">Raw comps · PSA odds · fees</span>
+            </div>
+            <div class="slab-grade">
+              <span class="verdict-tag">Grade it</span>
+              <span class="slab-profit">or skip?</span>
+              <span class="slab-profit-label">expected profit</span>
+            </div>
+          </div>
+          <div class="slab-window">
+            <div class="demo-card"><span class="demo-card-mark">?</span></div>
+          </div>
+        </div>
+        <p class="hero-art-note">your verdict lands here</p>
+      </div>
+    </div>
+
     <p class="hero-stats">
       <span><strong>Up to 50 sales</strong> behind each price</span>
+      <span><strong>Real PSA population</strong> counts for the odds</span>
       <span><strong>95% confidence</strong> shown on every gem rate</span>
       <span><strong>Free</strong>, no signup</span>
     </p>
@@ -141,8 +170,55 @@
     </section>
   </main>
 
+  <!-- marketing sections, hidden while a verdict is showing -->
+  <section class="home-extra why" id="why">
+    <p class="eyebrow">here's the catch</p>
+    <h2 class="section-title">The "if it gems" number is mostly fiction.</h2>
+    <p class="section-lede">On a 1999 Base Charizard, about 0.5% of PSA submissions come back a 10 and 58% grade 6 or below. A calculator that assumes the 10 is pricing a 1-in-200 shot as a sure thing.</p>
+    <div class="why-grid">
+      <div class="why-card why-card--them">
+        <span class="why-label">Typical calculator</span>
+        <span class="why-big">0.5%</span>
+        <p>Prices your card as if it comes back a PSA 10 — which happens about once in every 200 submissions.</p>
+      </div>
+      <div class="why-card why-card--us">
+        <span class="why-label">ShouldISlab</span>
+        <span class="why-big">58%</span>
+        <p>Counts the copies that grade 6 or below too, valued at raw — then weighs every grade by how often it really happens.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="home-extra how" id="how">
+    <h2 class="cb-title how-title">How it works</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <span class="how-num">No. 1</span>
+        <div class="how-body">
+          <h3>Pick the exact card</h3>
+          <p>Base, Shadowless and 1st Edition are separate cards — often 10x apart. Choose the version you actually own.</p>
+        </div>
+      </div>
+      <div class="how-card">
+        <span class="how-num">No. 2</span>
+        <div class="how-body">
+          <h3>We pull sales and odds</h3>
+          <p>The median of up to 50 recent sales at each PSA grade, plus the card's real population report, adjusted for your card's condition.</p>
+        </div>
+      </div>
+      <div class="how-card">
+        <span class="how-num how-num--red">No. 3</span>
+        <div class="how-body">
+          <h3>Get a straight answer</h3>
+          <p>Expected profit, the grade you need to break even, your chance of losing money, and a plain "skip it" when grading isn't worth it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <footer class="site-footer">
     <span class="footer-brand">ShouldISlab</span>
+    <span class="footer-note">Prices via CardHedge · Population data by GemRate</span>
     <span class="footer-note">Estimates only — not financial advice. Comps move fast.</span>
   </footer>
 

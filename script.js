@@ -15,11 +15,13 @@ function escapeHtml(s) {
 function showVerdict() {
   const app = document.querySelector('.app');
   app.classList.add('viewing-verdict');
+  document.body.classList.add('viewing-verdict');   // hides the marketing sections
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function backToSearch() {
   const app = document.querySelector('.app');
   app.classList.remove('viewing-verdict');
+  document.body.classList.remove('viewing-verdict');
   results.className = '';
   results.innerHTML = '<div class="results-empty"><p>search a card and let\'s see if it\'s worth it…</p></div>';
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -403,9 +405,11 @@ function renderResult(result, comps, cardMeta, gemRate) {
       : `a <strong>${pct(d.lossProb)}</strong> chance you lose money`;
     buyBlock = `
       <section class="buy-block">
-        <h3 class="cb-title">Buying it raw to grade?</h3>
-        <span class="buy-label">Don't pay over</span>
-        <span class="buy-price">${money(result.maxBuy)}</span>
+        <a class="buy-callout" href="/invest">
+          <span class="buy-callout-note">buying one raw to grade?</span>
+          <span class="buy-callout-price">Don't pay over <span>${money(result.maxBuy)}</span></span>
+          <span class="buy-callout-link">Price a deal →</span>
+        </a>
         <p class="buy-risk">
           That's the break-even — at it you make nothing on average. Pay it and
           the typical result is <strong>${money(d.median)}</strong> (${escapeHtml(d.medianLabel)}),
@@ -442,6 +446,28 @@ function renderResult(result, comps, cardMeta, gemRate) {
     ? `<p class="thin-note">${notes.join(' ')} Treat this verdict as an indication, not a market price.</p>`
     : '';
 
+  // where the card usually lands: one bar, worst grade on the left
+  let distBlock = '';
+  if (odds) {
+    const segs = [];
+    if (ladderProb != null && ladderProb < 0.999) segs.push({ label: 'PSA 6↓', prob: 1 - ladderProb, cls: 'below' });
+    [7, 8, 9, 10].forEach(g => { if (odds[g] > 0) segs.push({ label: 'PSA ' + g, prob: odds[g], cls: 'g' + g }); });
+    const aria = segs.map(x => `${pct(x.prob)} ${x.label}`).join(', ');
+    distBlock = `
+      <section class="dist">
+        <h3 class="cb-title">Where it usually lands</h3>
+        <div class="dist-bar" role="img" aria-label="Grade odds: ${escapeHtml(aria)}">
+          ${segs.map(x => `<span class="dist-seg dist-seg--${x.cls}" style="flex-grow:${x.prob}"></span>`).join('')}
+        </div>
+        <div class="dist-key">
+          ${segs.map(x => `<span><i class="dist-swatch dist-seg--${x.cls}"></i>${x.label} <strong>${pct(x.prob)}</strong></span>`).join('')}
+        </div>
+      </section>`;
+  }
+
+  // chance grading leaves you worse off than selling raw
+  const lossProb = result.ifOwned ? result.ifOwned.lossProb : null;
+
   const cardImg = cardMeta && cardMeta.image
     ? `<div class="slab-window"><img class="verdict-card-img" src="${escapeHtml(cardMeta.image)}" alt=""></div>` : '';
   const cardName = `<p class="verdict-card-name">${cardMeta && cardMeta.title ? escapeHtml(cardMeta.title) : 'Your card'}</p>`;
@@ -454,6 +480,8 @@ function renderResult(result, comps, cardMeta, gemRate) {
 
   results.className = good ? 'is-good' : 'is-bad';
   results.innerHTML = `
+    <div class="verdict-layout">
+    <div class="verdict-side">
     <div class="slab">
       <div class="slab-label">
         <div class="slab-id">
@@ -469,6 +497,10 @@ function renderResult(result, comps, cardMeta, gemRate) {
       </div>
       ${cardImg}
     </div>
+    </div>
+
+    <div class="verdict-main">
+    ${good ? '<p class="verdict-summary">worth sending</p>' : ''}
 
     ${thinNote}
 
@@ -486,11 +518,18 @@ function renderResult(result, comps, cardMeta, gemRate) {
         <span class="stat-label">Net if sold raw</span>
         <span class="stat-value">${money(result.netIfRaw)}</span>
       </div>
+      ${lossProb != null ? `
+      <div class="stat">
+        <span class="stat-label">Chance grading loses money</span>
+        <span class="stat-value ${lossProb >= 0.5 ? 'neg' : ''}">${pct(lossProb)}</span>
+      </div>` : ''}
       <div class="stat">
         <span class="stat-label">Best-case multiplier</span>
         <span class="stat-value">${result.multiplier == null ? '—' : result.multiplier.toFixed(1) + 'x'}</span>
       </div>
     </div>
+
+    ${distBlock}
 
     <section class="ladder">
       <h3 class="cb-title">Net by grade</h3>
@@ -513,5 +552,7 @@ function renderResult(result, comps, cardMeta, gemRate) {
     </section>
 
     ${buyBlock}
+    </div>
+    </div>
   `;
 }

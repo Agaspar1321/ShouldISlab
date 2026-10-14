@@ -45,7 +45,7 @@
   --fs-2xl: 2.5rem;
 
   /* layout: header, hero, panels and footer all share one edge */
-  --page: 900px;
+  --page: 1120px;
 
   /* shape */
   --r: 6px;                  /* cards have small corners, not pills */
@@ -649,7 +649,7 @@ select {
 /* ---------- /invest page ---------- */
 /* two columns: search on the left, the deal stays in view on the right */
 /* two panels need more room, so the whole /invest page widens together */
-.page--wide { --page: 1080px; }
+.page--wide { --page: 1120px; }
 @media (min-width: 860px) {
   .app--invest { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 1.5rem; align-items: start; }
   .app--invest .panel--results { position: sticky; top: 1rem; }
@@ -821,3 +821,275 @@ select {
   .slab-grade { align-items: flex-start; text-align: left; padding: 0.6rem 0 0; border-left: none; border-top: 1px solid var(--line); }
   .slab-window .verdict-card-img { max-width: 170px; }
 }
+
+
+/* =========================================================
+   REDESIGN (Oct 2026)
+   Wider page, two-column hero with an empty demo slab, a
+   "why" and "how it works" section on the home page, and a
+   two-column verdict: slab on the left, card back on the right.
+   ========================================================= */
+
+/* ---------- Hero ---------- */
+.hero { margin-top: 3rem; }
+.hero h1 { font-size: clamp(3rem, 8vw, 5.25rem); }
+.hero-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2.5rem 3.5rem;
+}
+.hero-copy { flex: 1 1 30rem; min-width: 0; }
+.hero-copy .lede { font-size: 1.125rem; }
+.hero-cta {
+  display: inline-block;
+  margin-top: 1.75rem;
+  padding: 0.85rem 1.5rem;
+  font-weight: 700;
+  color: var(--cream);
+  text-decoration: none;
+  background: var(--teal);
+  border-radius: var(--r);
+  box-shadow: 0 3px 0 #164f48;
+}
+.hero-cta:hover { color: var(--cream); background: #1f625a; }
+.hero-cta:active { transform: translateY(2px); box-shadow: none; }
+
+.hero-art { flex: 0 1 24rem; min-width: 0; margin: 0 auto; }
+.slab--demo { transform: rotate(1.5deg); max-width: 380px; }
+.slab--demo .slab-label { border-color: var(--teal); }
+.slab--demo .verdict-tag { color: var(--teal-ink); }
+.slab--demo .slab-profit { font-size: 1.75rem; color: var(--red-ink); }
+.demo-card {
+  display: grid;
+  place-items: center;
+  width: 62%;
+  aspect-ratio: 63 / 88;
+  border-radius: 8px;
+  border: 6px solid var(--inset);
+  background:
+    repeating-linear-gradient(45deg, rgba(36,111,102,.14) 0 6px, transparent 6px 14px),
+    var(--teal-soft);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+.demo-card-mark {
+  font-family: var(--display);
+  font-size: 3.5rem;
+  line-height: 1;
+  color: var(--teal);
+}
+.hero-art-note {
+  margin-top: 0.75rem;
+  text-align: center;
+  font-family: var(--hand);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.hero .hero-stats { margin-top: 2.5rem; }
+
+/* search reads as the main action */
+.search-bar input { padding-top: 0.85rem; padding-bottom: 0.85rem; font-size: 1.0625rem; }
+.search-bar button { padding-left: 1.6rem; padding-right: 1.6rem; font-size: 1.0625rem; }
+
+/* ---------- Home sections ---------- */
+body.viewing-verdict .home-extra { display: none; }
+
+.home-extra {
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+.why { padding-top: 2.5rem; }
+.section-title {
+  max-width: 48rem;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.section-lede { max-width: 40rem; margin-top: 1rem; font-size: 1.0625rem; color: var(--muted); }
+.why-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.25rem;
+  margin-top: 2rem;
+}
+.why-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.75rem;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--stock);
+  box-shadow: 0 2px 0 rgba(52, 42, 30, 0.12);
+}
+.why-card--them { background: var(--stock-2); }
+.why-card--us { border-color: var(--teal); box-shadow: 0 3px 0 #164f48; }
+.why-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.why-card--us .why-label { color: var(--teal-ink); }
+.why-big {
+  font-family: var(--display);
+  font-size: 3.75rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.why-card--them .why-big { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 4px; }
+.why-card--us .why-big { color: var(--teal-ink); }
+.why-card p { font-size: 0.9375rem; color: var(--muted); }
+
+.how { padding-top: 4rem; padding-bottom: 4.5rem; }
+.how-title { margin-top: 0; margin-bottom: 1.25rem; font-size: 2rem; }
+.how-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1.25rem;
+}
+.how-card {
+  overflow: hidden;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--stock);
+  box-shadow: 0 2px 0 rgba(52, 42, 30, 0.12);
+}
+.how-num {
+  display: block;
+  padding: 0.5rem 1.1rem;
+  font-family: var(--display);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: var(--teal);
+}
+.how-num--red { background: var(--red-ink); }
+.how-body { padding: 1.1rem 1.25rem 1.4rem; }
+.how-body h3 { font-size: 1.1875rem; }
+.how-body p { margin-top: 0.4rem; font-size: 0.9375rem; color: var(--muted); }
+
+/* ---------- Verdict: two columns ---------- */
+.verdict-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 2rem;
+}
+.verdict-side { flex: 1 1 20rem; max-width: 25rem; min-width: 0; margin: 0 auto; }
+.verdict-main { flex: 999 1 30rem; min-width: 0; }
+@media (min-width: 860px) {
+  .verdict-side { position: sticky; top: 1rem; margin: 0; }
+}
+.verdict-main > .cb-title:first-of-type,
+.verdict-main > .thin-note + .cb-title { margin-top: 1rem; }
+.verdict-summary {
+  font-family: var(--hand);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+#results.is-good .verdict-summary { color: var(--green-ink); }
+#results.is-bad  .verdict-summary { color: var(--red-ink); }
+
+/* odds distribution bar */
+.dist-bar {
+  display: flex;
+  height: 30px;
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+}
+.dist-seg { flex-basis: 0; min-width: 4px; }
+.dist-seg + .dist-seg { border-left: 2px solid var(--ink); }
+.dist-seg--below { background: #e6d8b9; }
+.dist-seg--g7 { background: var(--gold); }
+.dist-seg--g8 { background: #5c9a90; }
+.dist-seg--g9 { background: var(--teal); }
+.dist-seg--g10 { background: var(--red); }
+.dist-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin-top: 0.6rem;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dist-key span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.dist-key strong { color: var(--ink); }
+.dist-swatch { display: inline-block; width: 11px; height: 11px; border: 1px solid var(--ink); }
+
+/* "don't pay over" callout */
+.buy-callout {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0.25rem 1rem;
+  margin: 1.75rem 0 1rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: var(--r-lg);
+  color: var(--cream);
+  text-decoration: none;
+  background: var(--ink);
+  box-shadow: 0 3px 0 #18130e;
+}
+.buy-callout:hover { color: var(--cream); background: #3a3128; }
+.buy-callout-note {
+  grid-column: 1 / -1;
+  font-family: var(--hand);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #f3d48e;
+}
+.buy-callout-price {
+  font-family: var(--display);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.buy-callout-price span { font-variant-numeric: tabular-nums; }
+.buy-callout-link { font-weight: 700; white-space: nowrap; }
+
+/* ---------- /invest ---------- */
+.app--invest .buy-price { font-size: clamp(3rem, 8vw, 4.5rem); line-height: 0.95; }
+.app--invest .deal-head .verdict-card-img { width: 120px; }
+.slider-wrap {
+  padding: 1rem 1.1rem 1.1rem;
+  border-radius: var(--r);
+  background: var(--stock-2);
+  border: 1px solid var(--line);
+}
+.app--invest .buy-head,
+.app--invest .buy-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 6.5rem; }
+.app--invest .buy-odds { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; }
+.odds-bar {
+  flex: 1;
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--inset);
+}
+.odds-bar i { display: block; height: 100%; background: var(--teal); }
+.app--invest .buy-row .buy-grade { font-weight: 700; color: var(--teal-ink); }
+
+@media (max-width: 480px) {
+  .app--invest .buy-head, .app--invest .buy-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 5.75rem; }
+  .buy-callout { grid-template-columns: 1fr; }
+  .hero-art { display: none; }
+}
+
+/* while a verdict is showing, the demo slab and CTA would just repeat it */
+body.viewing-verdict .hero-art,
+body.viewing-verdict .hero-cta { display: none; }

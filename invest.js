@@ -233,7 +233,7 @@ function renderDeal(P) {
       ${[...c.outcomes].sort((a, b) => b.gross - a.gross).map(o => `
         <div class="buy-row">
           <span class="buy-grade">${escapeHtml(o.label)}</span>
-          <span class="buy-odds">${pct(o.prob)}</span>
+          <span class="buy-odds"><i class="odds-bar"><i style="width:${Math.max(o.prob * 100, 1.5)}%"></i></i>${pct(o.prob)}</span>
           <span class="buy-net ${o.gross - P < 0 ? 'neg' : 'pos'}">${money(o.gross - P)}</span>
         </div>`).join('')}
     </div>
